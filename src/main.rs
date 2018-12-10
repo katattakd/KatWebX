@@ -449,7 +449,7 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 				builder.header(header::CONTENT_ENCODING, "br");
 				builder.content_encoding(ContentEncoding::Identity);
 			})
-			.if_true(!full_path.ends_with(".br") && stream::gztypes.binary_search(&&*mime).is_err(), |builder| {
+			.if_true(!full_path.ends_with(".br") && stream::gztypes.binary_search(&&*mim).is_err(), |builder| {
 				builder.content_encoding(ContentEncoding::Identity);
 			})
 			.if_true(has_range, |builder| {
