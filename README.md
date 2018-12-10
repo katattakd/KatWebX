@@ -15,24 +15,16 @@ Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are l
 
 ## Current Features
 - Flexible config parsing
-- Server-side redirects
 - Regex-based redirects
-- Flexible config parsing
-- Websocket reverse proxy
-- Regex-based reverse proxying
-- Automatic proxy compression
+- Compressed regex-based reverse proxy
 - HTTP basic authentication
-- Regex-based auth
 - Fast file serving
 - Brotli file compression
 - HSTS support
-- HTTP/2 and HTTP/1.1 support
-- High peformance TLS 1.3
-- SNI support
-- OCSP response stapling
-- Advanced logging support
-- Material design error pages
-- Material design file listing
+- SNI and OCSP reponse stapling
+- High peformance HTTP/2 and TLS 1.3
+- Multiple logging types
+- Material design server-generated pages
 
 ## Possible Features
 - On-the-fly config reloading
