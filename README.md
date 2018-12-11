@@ -1,5 +1,5 @@
 ## KatWebX
-An extremely fast static web-server and reverse proxy for the modern web. More info is available on the [KatWebX Wiki](https://github.com/kittyhacker101/KatWebX/wiki).
+An extremely fast static web-server and reverse proxy for the modern web. More info is available on [KatWebX.kittyhacker101.tk](https://katwebx.kittyhacker101.tk/).
 
 ## Important Info
 KatWebX is a work in progress, and you will likely encounter bugs. **KatWebX is not well tested, production use is not recommended!**  If you need something which will is well tested and can be used in production, check out [KatWeb](https://github.com/kittyhacker101/KatWeb) instead.
