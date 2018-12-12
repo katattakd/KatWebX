@@ -15,9 +15,6 @@ pub struct Config {
 	pub hidden: Vec<String>,
 	pub lredir: Vec<String>,
 	pub lproxy: Vec<String>,
-	pub lredirx: Vec<String>,
-	pub lproxyx: Vec<String>,
-	pub lauthx: Vec<String>,
 	pub hiddenx: RegexSet,
 	pub redirx: RegexSet,
 	pub proxyx: RegexSet,
@@ -74,10 +71,6 @@ impl Config {
 				json::JsonValue::Array(array) => sort_json(array, "location"),
 				_ => Vec::new(),
 			},
-			lredirx: match &confj["redir"] {
-				json::JsonValue::Array(array) => array_json_regex(array, "location"),
-				_ => Vec::new(),
-			},
 			redirx: match &confj["redir"] {
 				json::JsonValue::Array(array) => RegexSet::new(array_json_regex(array, "location").iter()).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap()),
 				_ => RegexSet::new(&["$x"]).unwrap(),
@@ -91,10 +84,6 @@ impl Config {
 				json::JsonValue::Array(array) => sort_json(array, "location"),
 				_ => Vec::new(),
 			},
-			lproxyx: match &confj["proxy"] {
-				json::JsonValue::Array(array) => array_json_regex(array, "location"),
-				_ => Vec::new(),
-			},
 			proxyx: match &confj["proxy"] {
 				json::JsonValue::Array(array) => RegexSet::new(array_json_regex(array, "location").iter()).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap()),
 				_ => RegexSet::new(&["$x"]).unwrap(),
@@ -104,10 +93,6 @@ impl Config {
 				_ => HashMap::new(),
 			},
 
-			lauthx: match &confj["auth"] {
-				json::JsonValue::Array(array) => array_json_regex(array, "location"),
-				_ => Vec::new(),
-			},
 			authx: match &confj["auth"] {
 				json::JsonValue::Array(array) => RegexSet::new(array_json_regex(array, "location").iter()).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap()),
 				_ => RegexSet::new(&["$x"]).unwrap(),
@@ -188,12 +173,6 @@ mod tests {
 		assert_eq!(conf.hidden, vec!["r#tar.*", "redir", "src", "ssl"]);
 		assert_eq!(conf.lredir, vec!["localhost/redir", "r#localhost/redir2.*"]);
 		assert_eq!(conf.lproxy, vec!["proxy.local", "r#localhost/proxy[0-9]"]);
-
-		assert_eq!(conf.lredirx, vec!["localhost/redir2.*"]);
-		assert_eq!(conf.lproxyx, vec!["localhost/proxy[0-9]"]);
-		assert_eq!(conf.lauthx, vec!["localhost/demopass.*"]);
-
-
 
 		assert_eq!(conf.hiddenx.patterns().to_owned(), vec![r"tar.*"]);
 		assert_eq!(conf.redirx.patterns().to_owned(), vec![r"localhost/redir2.*"]);

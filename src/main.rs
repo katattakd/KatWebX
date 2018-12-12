@@ -71,7 +71,7 @@ fn handle_path(path: &str, host: &str, auth: &str, c: &Config) -> (String, Strin
 
 	if c.authx.is_match(fp) {
 		let mut r = "$x";
-		if let Some(regx) = c.authx.matches(fp).iter().next() {r = &c.lauthx[regx]};
+		if let Some(regx) = c.authx.matches(fp).iter().next() {r = &c.authx.patterns()[regx]};
 		if let Some(eauth) = c.authmap.get(&["r#", r].concat()) {
 			if auth != eauth {
 				return ("unauth".to_owned(), "redir".to_owned(), None)
@@ -82,7 +82,7 @@ fn handle_path(path: &str, host: &str, auth: &str, c: &Config) -> (String, Strin
 	match host {
 		_ if c.redirx.is_match(fp) => {
 			let mut r = "$x";
-			if let Some(regx) = c.redirx.matches(fp).iter().next() {r = &c.lredirx[regx]}
+			if let Some(regx) = c.redirx.matches(fp).iter().next() {r = &c.redirx.patterns()[regx]}
 			if let Some(link) = conf.redirmap.get(&["r#", r].concat()) {return ([link.to_owned(), trim_regex(r, fp)].concat(), "redir".to_owned(), None)}
 		},
 		_ if c.lredir.binary_search(fp).is_ok() => {
@@ -90,7 +90,7 @@ fn handle_path(path: &str, host: &str, auth: &str, c: &Config) -> (String, Strin
 		},
 		_ if c.proxyx.is_match(fp) => {
 			let mut r = "$x";
-			if let Some(regx) = c.proxyx.matches(fp).iter().next() {r = &c.lproxyx[regx]}
+			if let Some(regx) = c.proxyx.matches(fp).iter().next() {r = &c.proxyx.patterns()[regx]}
 			if let Some(link) = c.proxymap.get(&["r#", r].concat()) {return ([link.to_owned(), trim_regex(r, fp)].concat(), "proxy".to_owned(), None)}
 		},
 		_ if c.lproxy.binary_search(&hostn).is_ok() => {
