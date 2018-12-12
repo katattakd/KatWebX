@@ -631,4 +631,11 @@ mod tests {
 		assert_eq!(handle_path("/demopass/", "localhost", "aW5jb3JyZWN0OmxvZ2lu", &conf), ("unauth".to_owned(), "redir".to_owned(), None));
 		assert_eq!(handle_path("/demopass/", "localhost", "YWRtaW46cGFzc3dk", &conf), ("/demopass/index.html".to_owned(), "html".to_owned(), Some("html/demopass/index.html".to_owned())));
 	}
+	#[test]
+	fn test_handle_path_auth() {
+		let conf = default_conf();
+		assert_eq!(handle_path("/demopass/", "localhost", "YWRtaW46cGFzc3dk", &conf), ("/demopass/index.html".to_owned(), "html".to_owned(), Some("html/demopass/index.html".to_owned())));
+		assert_eq!(handle_path("/demopass/", "localhost", "YWRtaW46aW5jb3JyZWN0cGFzc3dk", &conf), ("unauth".to_owned(), "redir".to_owned(), None));
+		assert_eq!(handle_path("/demopass/", "localhost", "", &conf), ("unauth".to_owned(), "redir".to_owned(), None));
+	}
 }
