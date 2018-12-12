@@ -117,7 +117,7 @@ impl Config {
 				_ => HashMap::new(),
 			},
 			protect: confj["advanced"]["protect"].as_bool().unwrap_or(false),
-			compress_files: confj["advanced"]["compressFiles"].as_bool().unwrap_or(false),
+			compress_files: confj["advanced"]["compressfiles"].as_bool().unwrap_or(false),
 			log_format: confj["advanced"]["logformat"].as_str().unwrap_or("").to_owned(),
 			http_addr: confj["advanced"]["httpAddr"].as_str().unwrap_or("[::]:80").to_owned(),
 			tls_addr: confj["advanced"]["tlsAddr"].as_str().unwrap_or("[::]:443").to_owned(),
@@ -169,4 +169,41 @@ fn array_json_regex(array: &[json::JsonValue], attr: &str) -> Vec<String> {
 // Turn a JSON array into parsed regex.
 fn parse_json_regex(array: &[json::JsonValue], attr: &str) -> Result<RegexSet, regex::Error> {
 	RegexSet::new(&array_json_regex(array, attr))
+}
+
+// Unit tests
+#[cfg(test)]
+mod tests {
+	use {config};
+	fn default_conf() -> config::Config {
+		config::Config::load_config(config::DEFAULT_CONFIG.to_owned(), false)
+	}
+	#[test]
+	fn test_conf_defaults() {
+		let conf = default_conf();
+		assert_eq!(conf.caching_timeout, 4);
+		assert_eq!(conf.stream_timeout, 20);
+		assert_eq!(conf.hsts, false);
+
+		assert_eq!(conf.hidden, vec!["r#tar.*", "redir", "src", "ssl"]);
+		assert_eq!(conf.lredir, vec!["localhost/redir", "r#localhost/redir2.*"]);
+		assert_eq!(conf.lproxy, vec!["proxy.local", "r#localhost/proxy[0-9]"]);
+
+		assert_eq!(conf.lredirx, vec!["localhost/redir2.*"]);
+		assert_eq!(conf.lproxyx, vec!["localhost/proxy[0-9]"]);
+		assert_eq!(conf.lauthx, vec!["localhost/demopass.*"]);
+
+
+
+		assert_eq!(conf.hiddenx.patterns().to_owned(), vec![r"tar.*"]);
+		assert_eq!(conf.redirx.patterns().to_owned(), vec![r"localhost/redir2.*"]);
+		assert_eq!(conf.proxyx.patterns().to_owned(), vec![r"localhost/proxy[0-9]"]);
+		assert_eq!(conf.authx.patterns().to_owned(), vec![r"localhost/demopass.*"]);
+
+		assert_eq!(conf.protect, true);
+		assert_eq!(conf.compress_files, true);
+		assert_eq!(conf.log_format, "simple".to_owned());
+		assert_eq!(conf.http_addr, "[::]:80".to_owned());
+		assert_eq!(conf.tls_addr, "[::]:443".to_owned());
+	}
 }

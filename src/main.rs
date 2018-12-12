@@ -557,20 +557,9 @@ fn main() {
 // Unit tests for critical internal functions.
 #[cfg(test)]
 mod tests {
-	use {config, handle_path, trim_port, trim_host, trim_prefix, trim_suffix};
+	use {config, handle_path, trim_port, trim_host, trim_prefix, trim_suffix, trim_regex};
 	fn default_conf() -> config::Config {
 		config::Config::load_config(config::DEFAULT_CONFIG.to_owned(), false)
-	}
-	#[test]
-	fn test_conf_defaults() {
-		let conf = default_conf();
-		assert_eq!(conf.caching_timeout, 4);
-		assert_eq!(conf.stream_timeout, 20);
-		assert_eq!(conf.hsts, false);
-		assert_eq!(conf.protect, true);
-		assert_eq!(conf.log_format, "simple".to_owned());
-		assert_eq!(conf.http_addr, "[::]:80".to_owned());
-		assert_eq!(conf.tls_addr, "[::]:443".to_owned());
 	}
 	#[test]
 	fn test_trim_port() {
@@ -597,6 +586,15 @@ mod tests {
 		assert_eq!(trim_suffix("ing", "string"), "str");
 		assert_eq!(trim_suffix("no", "string"), "string");
 		assert_eq!(trim_suffix("str", "string"), "");
+	}
+	#[test]
+	fn test_trim_regex() {
+		assert_eq!(trim_regex("no+", "string"), "string");
+		assert_eq!(trim_regex("str", "string"), "ing");
+		assert_eq!(trim_regex("ing", "string"), "str");
+		assert_eq!(trim_regex("rin", "string"), "stg");
+		assert_eq!(trim_regex("\\w", "string"), "");
+		assert_eq!(trim_regex("string[1-9]", "string4"), "");
 	}
 	#[test]
 	fn test_handle_path_base() {
