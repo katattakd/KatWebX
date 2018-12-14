@@ -11,16 +11,12 @@
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_precision_loss)]
 
-// TODO: Fix this.
-#![allow(clippy::wildcard_dependencies)]
-
 #[macro_use]
 extern crate lazy_static;
 extern crate futures;
 extern crate actix;
 extern crate actix_web;
 extern crate rustls;
-extern crate mime;
 extern crate mime_guess;
 extern crate mime_sniffer;
 extern crate json;

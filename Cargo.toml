@@ -6,25 +6,30 @@ homepage = "https://github.com/kittyhacker101/KatWebX"
 authors = ["kittyhacker101 <kittyhacker101@protonmail.com>"]
 
 [dependencies]
-json = "*"
-base64 = "*"
-chrono = "*"
-futures = "*"
-futures-cpupool = "*"
-bytes = "*"
-mime = "*"
-mime_guess = "*"
-mime-sniffer = "*"
-lazy_static = "*"
-htmlescape = "*"
-number_prefix = "*"
-regex = "*"
-brotli = "*"
-rustls = "*"
-webpki = "*"
-actix = "*"
-percent-encoding = "*"
-actix-web = { version = "*", default-features = false, features = ["flate2-c", "session", "rust-tls"] }
+# The libraires below should only be updated for new releases, and new versions should be reviewed manually.
+json = "=0.11.13"
+mime_guess = "=2.0.0-alpha.6"
+mime-sniffer = "=0.1.2"
+percent-encoding = "=1.0.1"
+lazy_static = "=1.2.0"
+futures-cpupool = "=0.1.8"
+htmlescape = "=0.3.1"
+number_prefix = "=0.2.8"
+webpki = "=0.18.1"
+
+# The libraires below should be updated often, and new versions should be tested before use.
+bytes = "0.4.11"
+mime = "0.3.12"
+base64 = "0.10.0"
+chrono = "0.4.6"
+regex = "1.1.0"
+brotli = "3.1.5"
+rustls = "0.14.0"
+
+# The libraires below are updated too often to be versioned properly.
+futures = ">=0.1.25"
+actix = ">=0.7.9"
+actix-web = { version = ">=0.7.16", default-features = false, features = ["flate2-c", "session", "rust-tls"] }
 
 [profile.release]
 lto = true
