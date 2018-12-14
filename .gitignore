@@ -3,4 +3,4 @@
 /Cargo.lock
 /conf.json
 /html/test*
-/html/*.br
+*.br
