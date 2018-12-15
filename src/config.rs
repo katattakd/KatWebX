@@ -179,6 +179,14 @@ mod tests {
 		assert_eq!(conf.proxyx.patterns().to_owned(), vec![r"localhost/proxy[0-9]"]);
 		assert_eq!(conf.authx.patterns().to_owned(), vec![r"localhost/demopass.*"]);
 
+		assert_eq!(conf.redirmap.get("localhost/redir").map(|s| &**s), Some("https://kittyhacker101.tk"));
+		assert_eq!(conf.redirmap.get("r#localhost/redir2.*").map(|s| &**s), Some("https://google.com"));
+
+		assert_eq!(conf.proxymap.get("proxy.local").map(|s| &**s), Some("https://kittyhacker101.tk"));
+		assert_eq!(conf.proxymap.get("r#localhost/proxy[0-9]").map(|s| &**s), Some("https://kittyhacker101.tk"));
+
+		assert_eq!(conf.authmap.get("r#localhost/demopass.*").map(|s| &**s), Some("admin:passwd"));
+
 		assert_eq!(conf.protect, true);
 		assert_eq!(conf.compress_files, true);
 		assert_eq!(conf.log_format, "simple".to_owned());
