@@ -1,12 +1,22 @@
 [package]
 name = "katwebx"
-version = "0.1.0"
 license = "MIT"
-homepage = "https://github.com/kittyhacker101/KatWebX"
+version = "0.1.0"
+exclude = [".gitignore", ".travis.yml"]
+documentation = "https://katwebx.kittyhacker101.tk"
+repository = "https://github.com/kittyhacker101/KatWebX"
 authors = ["kittyhacker101 <kittyhacker101@protonmail.com>"]
+description = "A fast static web server and reverse proxy for the modern web."
+categories = ["network-programming", "web-programming::http-server", "web-programming::websocket"]
+
+[badges]
+travis-ci = { repository = "github.com/kittyhacker101/KatWebX", branch = "master" }
+is-it-maintained-issue-resolution = { repository = "github.com/kittyhacker101/KatWebX" }
+is-it-maintained-open-issues = { repository = "github.com/kittyhacker101/KatWebX" }
+maintenance = { status = "experimental" }
 
 [dependencies]
-# The libraires below should only be updated for new releases, and new versions should be reviewed manually.
+# The libraires below rarely require updating. All new versions should be tested and manually code reviewed before use.
 json = "=0.11.13"
 mime_guess = "=2.0.0-alpha.6"
 mime-sniffer = "=0.1.2"
@@ -17,16 +27,16 @@ htmlescape = "=0.3.1"
 number_prefix = "=0.2.8"
 webpki = "=0.18.1"
 
-# The libraires below should be updated often, and new versions should be tested before use.
+# The libraires below should be updated often, with new versions being tested before use.
 bytes = "0.4.11"
 mime = "0.3.12"
 base64 = "0.10.0"
 chrono = "0.4.6"
 regex = "1.1.0"
 brotli = "3.1.5"
-rustls = "0.14.0"
 
-# The libraires below are updated too often to be versioned properly.
+# The libraires below should always use the lastest version whenever possible.
+rustls = ">=0.14.0"
 futures = ">=0.1.25"
 actix = ">=0.7.9"
 actix-web = { version = ">=0.7.16", default-features = false, features = ["flate2-c", "session", "rust-tls"] }
