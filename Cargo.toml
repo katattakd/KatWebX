@@ -1,7 +1,7 @@
 [package]
 name = "katwebx"
 license = "MIT"
-version = "0.1.0-beta"
+version = "0.1.0-beta.2"
 exclude = [".gitignore", ".travis.yml", "conf.json", "/html/*test*", "*.br"]
 documentation = "https://katwebx.kittyhacker101.tk"
 repository = "https://github.com/kittyhacker101/KatWebX"
@@ -10,9 +10,9 @@ description = "A fast static web server and reverse proxy for the modern web."
 categories = ["network-programming", "web-programming::http-server", "web-programming::websocket"]
 
 [badges]
-travis-ci = { repository = "github.com/kittyhacker101/KatWebX", branch = "master" }
-is-it-maintained-issue-resolution = { repository = "github.com/kittyhacker101/KatWebX" }
-is-it-maintained-open-issues = { repository = "github.com/kittyhacker101/KatWebX" }
+travis-ci = { repository = "kittyhacker101/KatWebX", branch = "master" }
+is-it-maintained-issue-resolution = { repository = "kittyhacker101/KatWebX" }
+is-it-maintained-open-issues = { repository = "kittyhacker101/KatWebX" }
 maintenance = { status = "experimental" }
 
 [dependencies]
