@@ -8,9 +8,9 @@ Interested in the project? You can help fund KatWebX's development by donating t
 
 ## Release Schedule
 Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are listed below.
- - Late December, 2018 - KatWebX's first beta release.
- - January 12, 2019 - KatWebX's first pre-release. During the time from pre-release to release, no new features will be added, and the configuration format will not be changed.
- - Febuary 3, 2019 - KatWebX's first release.
+ - January 5, 2018 - KatWebX's first beta release.
+ - January 20, 2019 - KatWebX's first pre-release. During the time from pre-release to release, no new features will be added, and the configuration format will not be changed.
+ - Febuary 10, 2019 - KatWebX's first release.
  - Febuary 17, 2019 - A tool is released to automatically migrate configuration from KatWeb to KatWebX.
  - March 2, 2019 - All KatWeb users will be told to upgrade to KatWebX.
  - June 13, 2019 - KatWeb is given EOL status, and is discontinued. For users who still rely on KatWeb, per-person upgrade support and additional patches to KatWeb will be available on request until December 16, 2019.
