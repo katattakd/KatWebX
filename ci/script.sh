@@ -10,8 +10,8 @@ main() {
 	cross test --target $TARGET --release
 
 	# Clippy doesn't currently work with cross-compiling: https://github.com/rust-embedded/cross/issues/176
-	rustup component add clippy-preview
-	cargo clippy --target $TARGET --release
+	#rustup component add clippy-preview
+	#cross clippy --target $TARGET --release
 }
 
 if [ -z $TRAVIS_TAG ]; then
