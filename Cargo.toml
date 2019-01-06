@@ -18,31 +18,31 @@ maintenance = { status = "experimental" }
 [[bin]]
 name = "katwebx"
 
-[dependencies]
-# The libraires below rarely require updating. All new versions should be tested and manually code reviewed before use.
-json = "=0.11.13"
-mime_guess = "=2.0.0-alpha.6"
-mime-sniffer = "=0.1.2"
-percent-encoding = "=1.0.1"
-lazy_static = "=1.2.0"
+[dependencies] # Last reviewed on January 6, 2019
+# The libraires below rarely require updating (every 3 months or less). All new versions should be tested and reviewed before use.
+base64 = "=0.10.0"
+chrono = "=0.4.6"
 futures-cpupool = "=0.1.8"
 htmlescape = "=0.3.1"
+json = "=0.11.13"
+lazy_static = "=1.2.0"
+mime = "=0.3.12"
+mime_guess = "=2.0.0-alpha.6"
+mime-sniffer = "=0.1.2"
 number_prefix = "=0.2.8"
+percent-encoding = "=1.0.1"
 webpki = "=0.18.1"
 
-# The libraires below should be updated often, with new versions being tested before use.
-bytes = "0.4.11"
-mime = "0.3.12"
-base64 = "0.10.0"
-chrono = "0.4.6"
-regex = "1.1.0"
+# The libraires below should be updated often (at least once a month), with new versions being tested before use.
+actix = "0.7.9"
 brotli = "3.1.5"
+bytes = "0.4.11"
+futures = "0.1.25"
+regex = "1.1.0"
+rustls = "0.14.0"
 
 # The libraires below should always use the lastest version whenever possible.
-rustls = ">=0.14.0"
-futures = ">=0.1.25"
-actix = ">=0.7.9"
-actix-web = { version = ">=0.7.16", default-features = false, features = ["flate2-c", "session", "rust-tls"] }
+actix-web = { version = ">=0.7.17", default-features = false, features = ["flate2-c", "session", "rust-tls"] }
 
 [profile.release]
 lto = true
