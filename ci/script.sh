@@ -1,19 +1,9 @@
 set -ex
 
 main() {
-	if [ $TARGET == 'x86_64-unknown-linux-gnu' ]; then
-		cross build --target $TARGET --release
-
-		if [ ! -z $DISABLE_TESTS ]; then
-			return
-		fi
-
-		cargo test --target $TARGET --release
-
+	if [ $TARGET == 'x86_64-unknown-linux-musl' ]; then
 		rustup component add clippy-preview
 		cargo clippy --target $TARGET --release
-
-		return
 	fi
 
 	cross build --target $TARGET --release
