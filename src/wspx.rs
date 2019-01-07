@@ -1,4 +1,4 @@
-#![allow(unused_variables)]
+// TODO: Add binary support to websocket proxying.
 extern crate actix;
 extern crate actix_web;
 extern crate futures;
@@ -38,13 +38,13 @@ impl WsClient {
 impl Handler<ClientCommand> for WsClient {
     type Result = ();
 
-    fn handle(&mut self, msg: ClientCommand, ctx: &mut Context<Self>) {
+    fn handle(&mut self, msg: ClientCommand, _ctx: &mut Context<Self>) {
         self.0.text(msg.0)
     }
 }
 
 impl StreamHandler<Message, ProtocolError> for WsClient {
-    fn handle(&mut self, msg: Message, ctx: &mut Context<Self>) {
+    fn handle(&mut self, msg: Message, _ctx: &mut Context<Self>) {
 		if let Message::Text(txt) = msg {let _ = self.1.send(txt);}
     }
 
@@ -125,7 +125,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for WsProxy {
                 self.hb = Instant::now();
             }
             Message::Text(text) => {let _ = self.send.send(text);},
-            Message::Binary(bin) => (),
+            Message::Binary(_) => (),
             Message::Close(_) => {
                 ctx.stop();
             }

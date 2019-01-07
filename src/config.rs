@@ -10,7 +10,7 @@ pub const DEFAULT_CONFIG: &str = r#"{"cachingTimeout":4,"streamTimeout":20,"hsts
 #[derive(Clone)]
 pub struct Config {
 	pub caching_timeout: i64,
-	pub stream_timeout: u64,
+	pub stream_timeout: usize,
 	pub hsts: bool,
 	pub hidden: Vec<String>,
 	pub lredir: Vec<String>,
@@ -51,7 +51,7 @@ impl Config {
 
 		Self {
 			caching_timeout: confj["cachingTimeout"].as_i64().unwrap_or(0),
-			stream_timeout: confj["streamTimeout"].as_u64().unwrap_or(20),
+			stream_timeout: confj["streamTimeout"].as_usize().unwrap_or(20),
 			hsts: confj["hsts"].as_bool().unwrap_or(false),
 			hidden: match &confj["hide"] {
 				json::JsonValue::Array(array) => {

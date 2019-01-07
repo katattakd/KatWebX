@@ -1,3 +1,6 @@
+// This is currently a non-issue, and can be ignored.
+#![allow(clippy::cast_precision_loss)]
+
 // Ui.rs is responsible for creating all server-generated content (error pages, file listings, etc...)
 extern crate actix_web;
 extern crate htmlescape;

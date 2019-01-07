@@ -5,11 +5,9 @@
 // It's not possible to fix this.
 #![allow(clippy::multiple_crate_versions)]
 #![allow(clippy::cargo_common_metadata)]
-// There's no easy way to fix this without over-complicating the code.
-#![allow(clippy::borrow_interior_mutable_const)]
-// These two are currently non-issues, and can be ignored.
 #![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_precision_loss)]
+// There is no reason to fix this, it can be left as-is.
+#![allow(clippy::borrow_interior_mutable_const)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -112,12 +110,12 @@ fn handle_path(path: &str, host: &str, auth: &str, c: &Config) -> (String, Strin
 
 // Reverse proxy a request, passing through any compression.
 // Hop-by-hop headers are removed, to allow connection reuse.
-fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload, client_ip: &str, timeout: u64) -> Box<Future<Item=HttpResponse, Error=Error>> {
+fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload, client_ip: &str, timeout: usize) -> Box<Future<Item=HttpResponse, Error=Error>> {
 	let re = client::ClientRequest::build()
 		.with_connector(
 			ClientConnector::default()
-				.conn_lifetime(Duration::from_secs(timeout*4))
-				.conn_keep_alive(Duration::from_secs(timeout*4))
+				.conn_lifetime(Duration::from_secs((timeout*4) as u64))
+				.conn_keep_alive(Duration::from_secs((timeout*4) as u64))
 				.start())
 		.uri(path).method(method).disable_decompress()
 		.if_true(true, |req| {
@@ -308,7 +306,7 @@ fn get_mime(path: &str) -> String {
 			}
 		}
 
-		let mut sniffer_data = vec![0; cmp::min(512, finfo.len() as usize)];
+		let mut sniffer_data = vec![0; cmp::min(512, finfo.len()) as usize];
 		f.read_exact(&mut sniffer_data).unwrap_or(());
 
 		let mreq = mime_sniffer::HttpRequest {
@@ -415,8 +413,8 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 	}
 
 	// Parse a ranges header if it is present, and then turn a File into a stream.
-	let (length, offset) = stream::calculate_ranges(&req.drop_state(), finfo.len());
-	let has_range = offset != 0 || length != finfo.len();
+	let (length, offset) = stream::calculate_ranges(&req.drop_state(), finfo.len() as usize);
+	let has_range = offset != 0 || length as u64 != finfo.len();
 	let body = if length > 65_536 || has_range {
 		Body::Streaming(Box::new(stream::ChunkedReadFile {
 			offset,
@@ -432,7 +430,8 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 		Body::Binary(Binary::Bytes(stream::read_file(f).unwrap_or_else(|_| Bytes::from(""))))
 	};
 
-	log_data(&conf.log_format, 200, "Web", req, &conn_info, Some(length));
+	// TODO: Replace u64 length with usize length
+	log_data(&conf.log_format, 200, "Web", req, &conn_info, Some(length as u64));
 
 	// Craft a response.
 	let cache_int = conf.caching_timeout;
