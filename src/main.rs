@@ -5,8 +5,8 @@
 // It's not possible to fix this.
 #![allow(clippy::multiple_crate_versions)]
 #![allow(clippy::cargo_common_metadata)]
+// This is currently a non-issue, and can be ignored.
 #![allow(clippy::cast_possible_truncation)]
-// There is no reason to fix this, it can be left as-is.
 #![allow(clippy::borrow_interior_mutable_const)]
 
 #[macro_use]
