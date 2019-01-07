@@ -243,8 +243,8 @@ fn redir(path: &str) -> Box<Future<Item=HttpResponse, Error=Error>> {
 }
 
 // Logs a HTTP request to the console.
-// TODO: Add HTTP auth support.
-fn log_data(format_type: &str, status: u16, head: &str, req: &HttpRequest, conn: &ConnectionInfo, length: Option<u64>) {
+// Note: For security reasons, HTTP auth data is not included in logs.
+fn log_data(format_type: &str, status: u16, head: &str, req: &HttpRequest, conn: &ConnectionInfo, length: Option<usize>) {
 	if format_type == "" || format_type == "none" {
 		return
 	}
@@ -430,8 +430,7 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 		Body::Binary(Binary::Bytes(stream::read_file(f).unwrap_or_else(|_| Bytes::from(""))))
 	};
 
-	// TODO: Replace u64 length with usize length
-	log_data(&conf.log_format, 200, "Web", req, &conn_info, Some(length as u64));
+	log_data(&conf.log_format, 200, "Web", req, &conn_info, Some(length));
 
 	// Craft a response.
 	let cache_int = conf.caching_timeout;
