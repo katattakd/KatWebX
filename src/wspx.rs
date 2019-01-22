@@ -9,30 +9,31 @@ use actix_web::{actix::Actor, ws, ws::{Client, ClientWriter, Message, ProtocolEr
 use futures::Future;
 use std::{thread, sync::mpsc::{Receiver, Sender, channel}, time::{Duration, Instant}};
 
-struct WsClient(ClientWriter, Sender<String>);
+struct WsClient(ClientWriter, Sender<String>, Instant);
 
 #[derive(Message)]
 struct ClientCommand(String);
 
 impl Actor for WsClient {
     type Context = Context<Self>;
-
     fn started(&mut self, ctx: &mut Context<Self>) {
         self.hb(ctx)
     }
-
     fn stopped(&mut self, ctx: &mut Context<Self>) {
         ctx.stop();
     }
 }
 
 impl WsClient {
-    fn hb(&self, ctx: &mut Context<Self>) {
-        ctx.run_later(Duration::new(1, 0), |act, ctx| {
+	fn hb(&self, ctx: &mut Context<Self>) {
+		ctx.run_interval(Duration::from_secs(5), |act, _ctx| {
+			if Instant::now().duration_since(act.2) > Duration::from_secs(20) {
+				act.0.close(None);
+				return;
+			}
 			act.0.ping("");
-            act.hb(ctx);
-        });
-    }
+		});
+	}
 }
 
 impl Handler<ClientCommand> for WsClient {
@@ -44,8 +45,21 @@ impl Handler<ClientCommand> for WsClient {
 }
 
 impl StreamHandler<Message, ProtocolError> for WsClient {
-    fn handle(&mut self, msg: Message, _ctx: &mut Context<Self>) {
-		if let Message::Text(txt) = msg {let _ = self.1.send(txt);}
+    fn handle(&mut self, msg: Message, ctx: &mut Self::Context) {
+		match msg {
+			Message::Ping(msg) => {
+				self.2 = Instant::now();
+				self.0.pong(&msg);
+			}
+			Message::Pong(_) => {
+				self.2 = Instant::now();
+			}
+			Message::Text(text) => {let _ = self.1.send(text);},
+			Message::Binary(_) => (),
+			Message::Close(_) => {
+				ctx.stop();
+			}
+		}
     }
 
     fn finished(&mut self, ctx: &mut Context<Self>) {
@@ -79,7 +93,7 @@ impl WsProxy {
 				.map(|(reader, writer)| {
 					let addr = WsClient::create(|ctx| {
 						WsClient::add_stream(reader, ctx);
-						WsClient(writer, sender2)
+						WsClient(writer, sender2, Instant::now())
 					});
 					thread::spawn(move || {
 						for cmd in receiver1.iter() {
@@ -131,4 +145,8 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for WsProxy {
             }
         }
     }
+
+	fn finished(&mut self, ctx: &mut Self::Context) {
+		ctx.stop()
+	}
 }

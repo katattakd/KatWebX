@@ -8,7 +8,6 @@ Interested in the project? You can help fund KatWebX's development by donating t
 
 ## Release Schedule
 Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are listed below.
- - January 20 - KatWebX's first beta release.
  - Febuary 10 - KatWebX's first pre-release. During the time from pre-release to release, no new features will be added, and the configuration format will not be changed.
  - Febuary 27 - KatWebX's first release.
  - March 3 - A tool is released to automatically migrate configuration from KatWeb to KatWebX.
@@ -19,6 +18,7 @@ Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are l
 - Flexible config parsing
 - Regex-based redirects
 - Compressed regex-based reverse proxy
+- Websocket reverse proxying
 - HTTP basic authentication
 - Fast file serving
 - Brotli file compression
