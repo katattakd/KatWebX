@@ -30,7 +30,7 @@ use config::Config;
 mod wspx;
 use wspx::WsProxy;
 mod certs;
-use actix::System;
+use actix::{Addr, System};
 use actix_web::{actix::Actor, server, server::{RustlsAcceptor, ServerFlags}, client, client::ClientConnector, App, Body, Binary, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, HttpMessage, AsyncResponder, Error, dev::{ConnectionInfo, Payload}, ws};
 use futures::future::{Future, result};
 use std::{process, cmp, fs, string::String, fs::File, path::Path, io::Read, time::Duration, sync::Arc, ffi::OsStr};
@@ -44,6 +44,10 @@ use rustls::{ALL_CIPHERSUITES, NoClientAuth, ServerConfig, BulkAlgorithm};
 
 lazy_static! {
 	static ref conf: Config = Config::load_config("conf.json".to_owned(), true);
+	static ref clientconn: Addr<ClientConnector> = {ClientConnector::default()
+		.conn_lifetime(Duration::from_secs((conf.stream_timeout*4) as u64))
+		.conn_keep_alive(Duration::from_secs((conf.stream_timeout*4) as u64))
+		.start()};
 }
 
 // Generate the correct host and path, from raw data.
@@ -110,13 +114,9 @@ fn handle_path(path: &str, host: &str, auth: &str, c: &Config) -> (String, Strin
 
 // Reverse proxy a request, passing through any compression.
 // Hop-by-hop headers are removed, to allow connection reuse.
-fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload, client_ip: &str, timeout: usize) -> Box<Future<Item=HttpResponse, Error=Error>> {
+fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload, client_ip: &str) -> Box<Future<Item=HttpResponse, Error=Error>> {
 	let re = client::ClientRequest::build()
-		.with_connector(
-			ClientConnector::default()
-				.conn_lifetime(Duration::from_secs((timeout*4) as u64))
-				.conn_keep_alive(Duration::from_secs((timeout*4) as u64))
-				.start())
+		.with_connector(clientconn.to_owned())
 		.uri(path).method(method).disable_decompress()
 		.if_true(true, |req| {
 			for (key, value) in headers.iter() {
@@ -150,14 +150,19 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 				.status(resp.status())
 				.if_true(true, |req| {
 					for (key, value) in resp.headers().iter() {
-						if key == header::CONTENT_LENGTH {
-							continue
+						match key.as_str() {
+							"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "te" | "trailer" | "transfer-encoding" | "upgrade" => (),
+							"content-encoding" => {req.header(key.to_owned(), value.to_owned()); req.content_encoding(ContentEncoding::Identity);},
+							_ => {req.header(key.to_owned(), value.to_owned());},
 						}
-						if key == header::CONTENT_ENCODING {
+						//if key == header::CONTENT_LENGTH {
+						//	continue
+						//}
+						//if key == header::CONTENT_ENCODING {
 							// We don't want the data to be compressed more than once.
-							req.content_encoding(ContentEncoding::Identity);
-						}
-						req.header(key.to_owned(), value.to_owned());
+						//	;
+						//}
+						//;
 					}
 
 					if let Ok(c) = resp.cookies() {{for ck in &c {
@@ -370,7 +375,7 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 		if req.headers().get(header::UPGRADE).unwrap_or(blankhead).to_str().unwrap_or("") == "websocket" {
 			return result(ws::start(req, WsProxy::new(&path))).responder()
 		}
-		return proxy_request(&path, req.method().to_owned(), req.headers(), req.payload(), conn_info.remote().unwrap_or("127.0.0.1"), conf.stream_timeout)
+		return proxy_request(&path, req.method().to_owned(), req.headers(), req.payload(), conn_info.remote().unwrap_or("127.0.0.1"))
 	}
 
 	if req.method() != Method::GET && req.method() != Method::HEAD {
@@ -419,7 +424,7 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 		Body::Streaming(Box::new(stream::ChunkedReadFile {
 			offset,
 			size: length,
-			cpu_pool: req.cpu_pool().clone(),
+			cpu_pool: req.cpu_pool().to_owned(),
 			file: Some(f),
 			fut: None,
 			counter: 0,
@@ -475,6 +480,7 @@ fn main() {
 	println!("[Info]: Starting KatWebX...");
 	let sys = System::new("katwebx");
 	lazy_static::initialize(&conf);
+	lazy_static::initialize(&clientconn);
 
 	let mut tconfig = ServerConfig::new(NoClientAuth::new());
 	tconfig.ciphersuites = ALL_CIPHERSUITES.to_vec().into_iter().filter(|x| x.bulk != BulkAlgorithm::AES_128_GCM).collect();
@@ -523,7 +529,7 @@ fn main() {
 	})
 		.backlog(16384).maxconn(100_000).maxconnrate(16384)
 		.keep_alive(conf.stream_timeout as usize)
-		.bind_with(&conf.tls_addr, move || acceptor.clone())
+		.bind_with(&conf.tls_addr, move || acceptor.to_owned())
 		.unwrap_or_else(|_err| {
 			println!("{}", ["[Fatal]: Unable to bind to ", &conf.tls_addr, "!"].concat());
 			process::exit(1);

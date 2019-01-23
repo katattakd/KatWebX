@@ -51,7 +51,6 @@ pub fn calculate_ranges(req: &HttpRequest, length: usize) -> (usize, usize) {
 	(length, 0)
 }
 
-#[derive(Debug, Clone, Copy)]
 pub struct HttpRange {
     pub start: usize,
     pub length: usize,

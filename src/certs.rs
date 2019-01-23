@@ -15,7 +15,7 @@ impl ResolveCert {
     }
 
 	pub fn load(&mut self, name: String) -> Result<(), String> {
-		let pre = &[self.clone().cert_folder, name.to_owned()].concat();
+		let pre = &[self.to_owned().cert_folder, name.to_owned()].concat();
 		let (mut cert_file, mut key_file, cert_chain, mut keys, key);
 
 		if let Ok(f) = File::open([pre, ".crt"].concat()) {
