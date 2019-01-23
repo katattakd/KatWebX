@@ -18,31 +18,31 @@ maintenance = { status = "experimental" }
 [[bin]]
 name = "katwebx"
 
-[dependencies] # Last reviewed on January 6, 2019
+[dependencies] # Last reviewed on January 22, 2019
 # The libraires below rarely require updating (every 3 months or less). All new versions should be tested and reviewed before use.
 base64 = "=0.10.0"
 chrono = "=0.4.6"
-futures-cpupool = "=0.1.8"
+futures = "0.1.25"
+futures-cpupool = "=0.1.8" # Currently can't be upgraded to latest version
 htmlescape = "=0.3.1"
 json = "=0.11.13"
 lazy_static = "=1.2.0"
-mime = "=0.3.12"
+mime = "=0.3.13"
 mime_guess = "=2.0.0-alpha.6"
 mime-sniffer = "=0.1.2"
 number_prefix = "=0.2.8"
 percent-encoding = "=1.0.1"
-webpki = "=0.18.1"
+webpki = "=0.18.1" # Currently can't be upgraded to latest version
 
 # The libraires below should be updated often (at least once a month), with new versions being tested before use.
-actix = "0.7.9"
-brotli = "3.1.5"
+actix = "0.7.9" # Currently can't be upgraded to latest version
+brotli = "3.1.7"
 bytes = "0.4.11"
-futures = "0.1.25"
 regex = "1.1.0"
-rustls = "0.14.0"
+rustls = "0.14.0" # Currently can't be upgraded to latest version
 
 # The libraires below should always use the lastest version whenever possible.
-actix-web = { version = ">=0.7.17", default-features = false, features = ["flate2-c", "session", "rust-tls"] }
+actix-web = { version = ">=0.7.18", default-features = false, features = ["flate2-c", "session", "rust-tls"] }
 
 [profile.release]
 lto = true
