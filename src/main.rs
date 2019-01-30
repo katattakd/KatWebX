@@ -477,17 +477,6 @@ fn main() {
 	lazy_static::initialize(&conf);
 	lazy_static::initialize(&clientconn);
 
-	// If needed, bind the server to a socket.
-	if let Ok(Some(l)) = listenfd.take_tcp_listener(0) {
-		println!("[Info]: Started KatWebX in socket mode.");
-		server::new(|| {
-			App::new()
-				.default_resource(|r| r.f(index))
-		}).listen(l).run();
-		println!("\n[Info]: Stopping KatWebX...");
-		return
-	}
-
 	let mut tconfig = ServerConfig::new(NoClientAuth::new());
 	tconfig.ciphersuites = ALL_CIPHERSUITES.to_vec().into_iter().filter(|x| x.bulk != BulkAlgorithm::AES_128_GCM).collect();
 
@@ -528,7 +517,29 @@ fn main() {
 		ServerFlags::HTTP1 | ServerFlags::HTTP2,
 	);
 
-	// Request handling
+	// Socket request handling
+	if let Ok(Some(l)) = listenfd.take_tcp_listener(0) {
+		server::new(|| {
+			App::new()
+				.default_resource(|r| r.f(hsts))
+		}).keep_alive(conf.stream_timeout as usize)
+		.listen(l).start();
+
+		if let Ok(Some(li)) = listenfd.take_tcp_listener(1) {
+			server::new(|| {
+				App::new()
+					.default_resource(|r| r.f(index))
+			}).keep_alive(conf.stream_timeout as usize)
+			.listen_with(li, move || acceptor.to_owned()).start();
+		}
+
+		println!("[Info]: Started KatWebX in socket mode.");
+		let _ = sys.run();
+		println!("\n[Info]: Stopping KatWebX...");
+		return
+	}
+
+	// TCP request handling
     server::new(|| {
 		App::new()
 			.default_resource(|r| r.f(index))
