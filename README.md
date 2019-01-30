@@ -33,7 +33,7 @@ Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are l
 - On-the-fly config reloading (Currently extremely difficult to implement, requires rewrite of configuration handling)
 - QUIC support (Will be implemented after [actix-web issue #309](https://github.com/actix/actix-web/issues/309) is closed)
 - TLS mutual auth (Likely to be implemented in the near future)
-- FastCGI support (Likely to be implemented in the near future)
+- FastCGI support (Unlikely to be implemented in the near future, lack of existing client libraries)
 - Let's Encrypt integration (Difficult but practical to implement, possible in the future)
 - Caching proxy (Currently very difficult to implement, unlikely to be implemented in the near future)
 - Advanced load balancer (Likely to be implemented in the near future)
