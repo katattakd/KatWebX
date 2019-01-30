@@ -23,6 +23,7 @@ extern crate base64;
 extern crate bytes;
 extern crate chrono;
 extern crate percent_encoding;
+extern crate listenfd;
 mod stream;
 mod ui;
 mod config;
@@ -41,6 +42,7 @@ use regex::{Regex, NoExpand};
 use chrono::Local;
 use percent_encoding::{percent_decode};
 use rustls::{ALL_CIPHERSUITES, NoClientAuth, ServerConfig, BulkAlgorithm};
+use listenfd::ListenFd;
 
 lazy_static! {
 	static ref conf: Config = Config::load_config("conf.json".to_owned(), true);
@@ -155,14 +157,6 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 							"content-encoding" => {req.header(key.to_owned(), value.to_owned()); req.content_encoding(ContentEncoding::Identity);},
 							_ => {req.header(key.to_owned(), value.to_owned());},
 						}
-						//if key == header::CONTENT_LENGTH {
-						//	continue
-						//}
-						//if key == header::CONTENT_ENCODING {
-							// We don't want the data to be compressed more than once.
-						//	;
-						//}
-						//;
 					}
 
 					if let Ok(c) = resp.cookies() {{for ck in &c {
@@ -479,8 +473,20 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 fn main() {
 	println!("[Info]: Starting KatWebX...");
 	let sys = System::new("katwebx");
+	let mut listenfd = ListenFd::from_env();
 	lazy_static::initialize(&conf);
 	lazy_static::initialize(&clientconn);
+
+	// If needed, bind the server to a socket.
+	if let Ok(Some(l)) = listenfd.take_tcp_listener(0) {
+		println!("[Info]: Started KatWebX in socket mode.");
+		server::new(|| {
+			App::new()
+				.default_resource(|r| r.f(index))
+		}).listen(l).run();
+		println!("\n[Info]: Stopping KatWebX...");
+		return
+	}
 
 	let mut tconfig = ServerConfig::new(NoClientAuth::new());
 	tconfig.ciphersuites = ALL_CIPHERSUITES.to_vec().into_iter().filter(|x| x.bulk != BulkAlgorithm::AES_128_GCM).collect();
@@ -527,7 +533,6 @@ fn main() {
 		App::new()
 			.default_resource(|r| r.f(index))
 	})
-		.backlog(16384).maxconn(100_000).maxconnrate(16384)
 		.keep_alive(conf.stream_timeout as usize)
 		.bind_with(&conf.tls_addr, move || acceptor.to_owned())
 		.unwrap_or_else(|_err| {
@@ -540,7 +545,6 @@ fn main() {
 		App::new()
 			.default_resource(|r| r.f(hsts))
 	})
-		.backlog(16384).maxconn(100_000).maxconnrate(16384)
 		.keep_alive(conf.stream_timeout as usize)
 		.bind(&conf.http_addr)
 		.unwrap_or_else(|_err| {
