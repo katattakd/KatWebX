@@ -461,7 +461,7 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 			.if_true(conf.protect, |builder| {
 				builder.header(header::REFERRER_POLICY, "no-referrer");
 				builder.header(header::X_CONTENT_TYPE_OPTIONS, "nosniff");
-				builder.header(header::CONTENT_SECURITY_POLICY, "default-src https: data: 'unsafe-inline' 'unsafe-eval' 'self'; frame-ancestors 'self'");
+				builder.header(header::CONTENT_SECURITY_POLICY, "default-src https: wss: data: 'unsafe-inline' 'unsafe-eval' 'self'; frame-ancestors 'self'");
 				builder.header(header::X_XSS_PROTECTION, "1; mode=block");
 			})
 			.header(header::SERVER, "KatWebX Beta")
