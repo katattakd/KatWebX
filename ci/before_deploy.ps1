@@ -8,9 +8,9 @@ Set-Location $STAGE
 $ZIP = "$SRC_DIR\$($Env:CRATE_NAME)-$($Env:APPVEYOR_REPO_TAG_NAME)-$($Env:TARGET).zip"
 
 Copy-Item "$SRC_DIR\target\$($Env:TARGET)\release\katwebx.exe" '.\'
-Copy-Item "$SRC_DIR\html\*" '.\html\' -recurse
-Copy-Item "$SRC_DIR\src\*" '.\src\' -recurse
-Copy-Item "$SRC_DIR\ssl\*" '.\ssl\' -recurse
+Copy-Item $SRC_DIR\html -destination .\html -recurse
+Copy-Item $SRC_DIR\src -destination .\src -recurse
+Copy-Item $SRC_DIR\ssl -destination .\ssl -recurse
 
 7z a "$ZIP" *
 
