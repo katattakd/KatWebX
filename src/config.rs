@@ -1,11 +1,87 @@
 // Config.rs handles configuration parsing.
-extern crate json;
+// TODO: Clean up the code, to improve readability.
+extern crate serde;
+extern crate serde_derive;
+extern crate toml;
 extern crate regex;
 use std::{collections::HashMap, fs, process};
 use regex::RegexSet;
 
 // The default configuration for the server to use.
-pub const DEFAULT_CONFIG: &str = r#"{"cachingTimeout":4,"streamTimeout":20,"hsts":false,"proxy":[{"location":"proxy.local","host":"https://kittyhacker101.tk"},{"location":"r#localhost/proxy[0-9]","host":"https://kittyhacker101.tk"}],"redir":[{"location":"localhost/redir","dest":"https://kittyhacker101.tk"},{"location":"r#localhost/redir2.*","dest":"https://google.com"}],"auth":[{"location":"r#localhost/demopass.*","login":"admin:passwd"}],"hide":["src","r#tar.*"],"advanced":{"protect":true,"compressfiles":true,"logformat":"simple","httpAddr":"[::]:80","tlsAddr":"[::]:443"}}"#;
+pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Default Configuration
+# Note that regex can be enabled for some fields by adding r# to the beginning of the string.
+# Excessive use of regex can have a large peformance impact.
+
+[server] # Server related settings.
+# http_addr and tls_addr specify the address and port KatWebX should bind to.
+# When using socket listening, these values are ignored.
+http_addr = "[::]:80"
+tls_addr = "[::]:443"
+
+# stream_timeout controls the maximum amount of time the connection can stay open (in seconds).
+stream_timeout = 20
+
+# log_format controls the format used for logging requests.
+# Supported values are combinedvhost, combined, commonvhost, common, simpleplus, simple, minimal, and none.
+log_format = "simple"
+
+
+[content] # Content related settings.
+# protect allows prevention of some common security issues through the use of HTTP headers.
+# Note that this may break some sites, and slightly reduces logging information.
+protect = true
+
+# caching_timeout controls how long the content is cached by the client (in hours).
+caching_timeout = 4
+
+# compress_files allows the server to save brotli compressed versions of files to the disk.
+# When this is disabled, all data will be compressed on-the-fly, severely reducing peformance.
+# Note that this only prevents the creation of new brotli files, existing brotli files will still be served.
+compress_files = true
+
+# hsts forces clients to use HTTPS, through the use of HTTP headers and redirects.
+# Note that this will also enable HSTS preloading. Once you are on the HSTS preload list, it's very difficult to get off of it.
+# You can request for your site to be added to the HSTS preload list here: r#localhost/redir2.*https://hstspreload.org/
+hsts = false
+
+# hide specifies a list of folders which can't be used to serve content. This field supports regex.
+# Note that the ssl folder is automatically included in this, and hidden folders are always ignored.
+hide = ["src", "r#tar.*"]
+
+
+[[proxy]] # HTTP reverse proxy
+# The host to be proxied. When using regex in this field, a URL without the protocol is provided as input instead.
+location = "proxy.local"
+
+# The destination for proxied requests. When using HTTPS, a valid TLS certificate is required.
+dest = "https://kittyhacker101.tk"
+
+
+[[proxy]]
+location = "r#localhost/proxy[0-9]"
+dest = "http://localhost:8081"
+
+
+[[redir]] # HTTP redirects
+# The url (without the protocol) that this redirect affects. This field supports regex.
+location = "localhost/redir"
+
+# The destination that the client is redirected to.
+dest = "https://kittyhacker101.tk"
+
+
+[[redir]]
+location = "r#localhost/redir2.*"
+dest = "https://google.com"
+
+
+[[auth]] # HTTP basic authentication
+# The url (without the protocol) that this affects. This field must be regex.
+location = "r#localhost/demopass.*"
+
+# The username and password required to get access to the resource, split by a ":" character.
+login = "admin:passwd"
+"##;
 
 pub struct Config {
 	pub caching_timeout: i64,
@@ -28,6 +104,44 @@ pub struct Config {
 	pub tls_addr: String,
 }
 
+#[derive(Clone, Deserialize)]
+struct ConfStruct {
+	server: ConfStructServer,
+	content: ConfStructContent,
+	proxy: Vec<ConfStructPrRe>,
+	redir: Vec<ConfStructPrRe>,
+	auth: Vec<ConfStructAuth>
+}
+
+#[derive(Clone, Deserialize)]
+struct ConfStructServer {
+	http_addr: String,
+	tls_addr: String,
+	stream_timeout: usize,
+	log_format: String
+}
+
+#[derive(Clone, Deserialize)]
+struct ConfStructContent {
+	protect: bool,
+	caching_timeout: i64,
+	compress_files: bool,
+	hsts: bool,
+	hide: Vec<String>
+}
+
+#[derive(Clone, Deserialize)]
+struct ConfStructPrRe {
+	location: String,
+	dest: String
+}
+
+#[derive(Clone, Deserialize)]
+struct ConfStructAuth {
+	location: String,
+	login: String
+}
+
 impl Config {
 	// load_config loads a configuration from a string or file.
 	pub fn load_config(data: String, is_path: bool) -> Self {
@@ -37,122 +151,115 @@ impl Config {
 			data.to_owned()
 		};
 
-		let confj = json::parse(&datar).unwrap_or_else(|_err| {
+		let conft: ConfStruct = toml::from_str(&datar).unwrap_or_else(|_err| {
 			println!("[Fatal]: Unable to parse configuration!");
 			process::exit(1);
 		});
 
 		if is_path {
-			fs::write(data, confj.pretty(2)).unwrap_or_else(|_err| {
+			fs::write(data, datar).unwrap_or_else(|_err| {
 				println!("[Warn]: Unable to write configuration!");
 			});
 		}
 
 		Self {
-			caching_timeout: confj["cachingTimeout"].as_i64().unwrap_or(0),
-			stream_timeout: confj["streamTimeout"].as_usize().unwrap_or(20),
-			hsts: confj["hsts"].as_bool().unwrap_or(false),
-			hidden: match &confj["hide"] {
-				json::JsonValue::Array(array) => {
-					let mut tmp = sort_json(array, "");
-					tmp.push("ssl".to_owned());
-					tmp.push("redir".to_owned());
-					tmp.sort_unstable();
-					tmp
-				},
-				_ => Vec::new(),
+			caching_timeout: conft.content.caching_timeout,
+			stream_timeout: conft.server.stream_timeout,
+			hsts: conft.content.hsts,
+			hidden: {
+				let mut tmp = conft.content.hide.to_owned();
+				tmp.push("ssl".to_owned());
+				tmp.push("redir".to_owned());
+				tmp.sort_unstable();
+				tmp
 			},
-			hiddenx: match &confj["hide"] {
-				json::JsonValue::Array(array) => parse_json_regex(array, "").unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap()),
-				_ => RegexSet::new(&["$x"]).unwrap(),
+			hiddenx: {
+				parse_regex(conft.content.hide).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
 			},
-			lredir: match &confj["redir"] {
-				json::JsonValue::Array(array) => sort_json(array, "location"),
-				_ => Vec::new(),
+			lredir: {
+				let mut tmp = Vec::new();
+				for item in conft.redir.to_owned() {
+					tmp.push(item.location);
+				}
+				tmp.sort_unstable();
+				tmp
 			},
-			redirx: match &confj["redir"] {
-				json::JsonValue::Array(array) => RegexSet::new(array_json_regex(array, "location").iter()).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap()),
-				_ => RegexSet::new(&["$x"]).unwrap(),
+			redirx: {
+				let mut tmp = Vec::new();
+				for item in conft.redir.to_owned() {
+					tmp.push(item.location);
+				}
+				parse_regex(tmp).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
 			},
-			redirmap: match &confj["redir"] {
-				json::JsonValue::Array(array) => map_json(array, "location", "dest"),
-				_ => HashMap::new(),
-			},
-
-			lproxy: match &confj["proxy"] {
-				json::JsonValue::Array(array) => sort_json(array, "location"),
-				_ => Vec::new(),
-			},
-			proxyx: match &confj["proxy"] {
-				json::JsonValue::Array(array) => RegexSet::new(array_json_regex(array, "location").iter()).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap()),
-				_ => RegexSet::new(&["$x"]).unwrap(),
-			},
-			proxymap: match &confj["proxy"] {
-				json::JsonValue::Array(array) => map_json(array, "location", "host"),
-				_ => HashMap::new(),
+			redirmap: {
+				let mut tmp = HashMap::new();
+				for item in conft.redir {
+					tmp.insert(item.location, item.dest);
+				}
+				tmp
 			},
 
-			authx: match &confj["auth"] {
-				json::JsonValue::Array(array) => RegexSet::new(array_json_regex(array, "location").iter()).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap()),
-				_ => RegexSet::new(&["$x"]).unwrap(),
+			lproxy: {
+				let mut tmp = Vec::new();
+				for item in conft.proxy.to_owned() {
+					tmp.push(item.location);
+				}
+				tmp.sort_unstable();
+				tmp
 			},
-			authmap: match &confj["auth"] {
-				json::JsonValue::Array(array) => map_json(array, "location", "login"),
-				_ => HashMap::new(),
+			proxyx: {
+				let mut tmp = Vec::new();
+				for item in conft.proxy.to_owned() {
+					tmp.push(item.location);
+				}
+				parse_regex(tmp).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
 			},
-			protect: confj["advanced"]["protect"].as_bool().unwrap_or(false),
-			compress_files: confj["advanced"]["compressfiles"].as_bool().unwrap_or(false),
-			log_format: confj["advanced"]["logformat"].as_str().unwrap_or("").to_owned(),
-			http_addr: confj["advanced"]["httpAddr"].as_str().unwrap_or("[::]:80").to_owned(),
-			tls_addr: confj["advanced"]["tlsAddr"].as_str().unwrap_or("[::]:443").to_owned(),
+			proxymap: {
+				let mut tmp = HashMap::new();
+				for item in conft.proxy {
+					tmp.insert(item.location, item.dest);
+				}
+				tmp
+			},
+
+			authx: {
+				let mut tmp = Vec::new();
+				for item in conft.auth.to_owned() {
+					tmp.push(item.location);
+				}
+				parse_regex(tmp).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
+			},
+			authmap: {
+				let mut tmp = HashMap::new();
+				for item in conft.auth {
+					tmp.insert(item.location, item.login);
+				}
+				tmp
+			},
+			protect: conft.content.protect,
+			compress_files: conft.content.compress_files,
+			log_format: conft.server.log_format,
+			http_addr: conft.server.http_addr,
+			tls_addr: conft.server.tls_addr,
 		}
 	}
 }
 
-// Turn a JSON array into a sorted Vec<String>.
-fn sort_json(array: &[json::JsonValue], attr: &str) -> Vec<String> {
-	let mut tmp = Vec::new();
-	for item in array {
-		if attr == "" {
-			tmp.push(item.as_str().unwrap_or("").to_owned())
-		} else {
-			tmp.push(item[attr].as_str().unwrap_or("").to_owned())
-		}
-	}
-	tmp.sort_unstable();
-	tmp
-}
-
-// Turn a JSON array into a HashMap<String, String>.
-fn map_json(array: &[json::JsonValue], attr1: &str, attr2: &str) -> HashMap<String, String> {
-	let mut tmp = HashMap::new();
-	for item in array {
-		tmp.insert(item[attr1].as_str().unwrap_or("").to_owned(), item[attr2].as_str().unwrap_or("").to_owned());
-	}
-	tmp
-}
-
-// Turn a JSON array into a Vec<String>, only adding items which contain regex.
+// Turn an array into a Vec<String>, only adding items which contain regex.
 // All regex strings must start with r#, so that the program knows they are regex. The r# will be trimmed from the string before the regex is parsed.
-fn array_json_regex(array: &[json::JsonValue], attr: &str) -> Vec<String> {
+fn array_get_regex(array: Vec<String>) -> Vec<String> {
 	let mut tmp = Vec::new();
 	for item in array {
-		let itemt = if attr == "" {
-			item.as_str().unwrap_or("").to_owned()
-		} else {
-		 	item[attr].as_str().unwrap_or("").to_owned()
-		};
-		if itemt.starts_with("r#") {
-			tmp.push(itemt[2..].to_owned())
+		if item.starts_with("r#") {
+			tmp.push(item[2..].to_owned())
 		}
 	}
-	tmp.sort_unstable();
 	tmp
 }
 
-// Turn a JSON array into parsed regex.
-fn parse_json_regex(array: &[json::JsonValue], attr: &str) -> Result<RegexSet, regex::Error> {
-	RegexSet::new(&array_json_regex(array, attr))
+// Turn an array into parsed regex.
+fn parse_regex(array: Vec<String>) -> Result<RegexSet, regex::Error> {
+	RegexSet::new(&array_get_regex(array))
 }
 
 // Unit tests
@@ -182,7 +289,7 @@ mod tests {
 		assert_eq!(conf.redirmap.get("r#localhost/redir2.*").map(|s| &**s), Some("https://google.com"));
 
 		assert_eq!(conf.proxymap.get("proxy.local").map(|s| &**s), Some("https://kittyhacker101.tk"));
-		assert_eq!(conf.proxymap.get("r#localhost/proxy[0-9]").map(|s| &**s), Some("https://kittyhacker101.tk"));
+		assert_eq!(conf.proxymap.get("r#localhost/proxy[0-9]").map(|s| &**s), Some("http://localhost:8081"));
 
 		assert_eq!(conf.authmap.get("r#localhost/demopass.*").map(|s| &**s), Some("admin:passwd"));
 

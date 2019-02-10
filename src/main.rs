@@ -11,13 +11,15 @@
 
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate serde_derive;
 extern crate futures;
 extern crate actix;
 extern crate actix_web;
 extern crate rustls;
 extern crate mime_guess;
 extern crate mime_sniffer;
-extern crate json;
+extern crate toml;
 extern crate regex;
 extern crate base64;
 extern crate bytes;
@@ -45,7 +47,7 @@ use rustls::{ALL_CIPHERSUITES, NoClientAuth, ServerConfig, BulkAlgorithm};
 use listenfd::ListenFd;
 
 lazy_static! {
-	static ref conf: Config = Config::load_config("conf.json".to_owned(), true);
+	static ref conf: Config = Config::load_config("conf.toml".to_owned(), true);
 	static ref clientconn: Addr<ClientConnector> = {ClientConnector::default()
 		.conn_lifetime(Duration::from_secs((conf.stream_timeout*4) as u64))
 		.conn_keep_alive(Duration::from_secs((conf.stream_timeout*4) as u64))
@@ -464,7 +466,7 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 				builder.header(header::CONTENT_SECURITY_POLICY, "default-src https: wss: data: 'unsafe-inline' 'unsafe-eval' 'self'; frame-ancestors 'self'");
 				builder.header(header::X_XSS_PROTECTION, "1; mode=block");
 			})
-			.header(header::SERVER, "KatWebX Beta")
+			.header(header::SERVER, "KatWebX")
             .body(body)))
         	.responder()
 }
@@ -632,7 +634,7 @@ mod tests {
 		assert_eq!(handle_path("/redir2a", "localhost", "", &conf), ("https://google.com".to_owned(), "redir".to_owned(), None));
 
 		assert_eq!(handle_path("/links.html", "proxy.local", "", &conf), ("https://kittyhacker101.tk/links.html".to_owned(), "proxy".to_owned(), None));
-		assert_eq!(handle_path("/proxy0/links.html", "localhost", "", &conf), ("https://kittyhacker101.tk/links.html".to_owned(), "proxy".to_owned(), None));
+		assert_eq!(handle_path("/proxy0/links.html", "localhost", "", &conf), ("http://localhost:8081/links.html".to_owned(), "proxy".to_owned(), None));
 
 		assert_eq!(handle_path("/", "src", "", &conf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
 		assert_eq!(handle_path("/", "target", "", &conf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));

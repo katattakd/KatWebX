@@ -1,6 +1,6 @@
 /target
 **/*.rs.bk
 /Cargo.lock
-/conf.json
+/conf.toml
 /html/test*
 *.br
