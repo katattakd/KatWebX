@@ -2,7 +2,7 @@
 name = "katwebx"
 license = "MIT"
 version = "1.0.0-pre"
-exclude = [".gitignore", ".travis.yml", "appveyor.yml", "conf.json", "/ci*", "/html/*test*", "*.br"]
+exclude = [".gitignore", ".travis.yml", "appveyor.yml", "conf.toml", "/ci*", "/html/*test*", "*.br"]
 documentation = "https://katwebx.kittyhacker101.tk"
 repository = "https://github.com/kittyhacker101/KatWebX"
 authors = ["kittyhacker101 <kittyhacker101@protonmail.com>"]
