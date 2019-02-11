@@ -47,7 +47,7 @@ use rustls::{ALL_CIPHERSUITES, NoClientAuth, ServerConfig, BulkAlgorithm};
 use listenfd::ListenFd;
 
 lazy_static! {
-	static ref conf: Config = Config::load_config("conf.toml".to_owned(), true);
+	static ref conf: Config = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true);
 	static ref clientconn: Addr<ClientConnector> = {ClientConnector::default()
 		.conn_lifetime(Duration::from_secs((conf.stream_timeout*4) as u64))
 		.conn_keep_alive(Duration::from_secs((conf.stream_timeout*4) as u64))
@@ -473,6 +473,10 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 
 // Load configuration, SSL certs, then attempt to start the program.
 fn main() {
+	for argument in std::env::args() {
+    	println!("{}", argument);
+	}
+
 	println!("[Info]: Starting KatWebX...");
 	let sys = System::new("katwebx");
 	let mut listenfd = ListenFd::from_env();
@@ -482,12 +486,12 @@ fn main() {
 	let mut tconfig = ServerConfig::new(NoClientAuth::new());
 	tconfig.ciphersuites = ALL_CIPHERSUITES.to_vec().into_iter().filter(|x| x.bulk != BulkAlgorithm::AES_128_GCM).collect();
 
-	let tls_folder = fs::read_dir("ssl".to_string()).unwrap_or_else(|_| {
-		println!("[Fatal]: Unable to open ssl/ folder!");
+	let tls_folder = fs::read_dir(conf.cert_folder.to_owned()).unwrap_or_else(|_| {
+		println!("[Fatal]: Unable to open certificate folder!");
 		process::exit(1);
 	});
 
-	let mut cert_resolver = certs::ResolveCert::new("ssl/".to_owned());
+	let mut cert_resolver = certs::ResolveCert::new([&conf.cert_folder, "/"].concat());
 	for file in tls_folder {
 		let f;
 		if let Ok(fi) = file {

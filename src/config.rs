@@ -8,9 +8,8 @@ use std::{collections::HashMap, fs, process};
 use regex::RegexSet;
 
 // The default configuration for the server to use.
-pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Default Configuration
+pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Configuration. Please make sure you edit this file before running KatWebX.
 # Note that regex can be enabled for some fields by adding r# to the beginning of the string.
-# Excessive use of regex can have a large peformance impact.
 
 [server] # Server related settings.
 # http_addr and tls_addr specify the address and port KatWebX should bind to.
@@ -24,6 +23,9 @@ stream_timeout = 20
 # log_format controls the format used for logging requests.
 # Supported values are combinedvhost, combined, commonvhost, common, simpleplus, simple, minimal, and none.
 log_format = "simple"
+
+# cert_folder controls the folder used for storing TLS certificates, encryption keys, and OCSP data.
+cert_folder = "ssl"
 
 
 [content] # Content related settings.
@@ -45,7 +47,7 @@ compress_files = true
 hsts = false
 
 # hide specifies a list of folders which can't be used to serve content. This field supports regex.
-# Note that the ssl folder is automatically included in this, and hidden folders are always ignored.
+# Note that the certificate folder is automatically included in this, and hidden folders are always ignored.
 hide = ["src", "r#tar.*"]
 
 
@@ -102,6 +104,7 @@ pub struct Config {
 	pub log_format: String,
 	pub http_addr: String,
 	pub tls_addr: String,
+	pub cert_folder: String,
 }
 
 #[derive(Clone, Deserialize)]
@@ -118,7 +121,8 @@ struct ConfStructServer {
 	http_addr: String,
 	tls_addr: String,
 	stream_timeout: usize,
-	log_format: String
+	log_format: String,
+	cert_folder: String
 }
 
 #[derive(Clone, Deserialize)]
@@ -146,21 +150,22 @@ impl Config {
 	// load_config loads a configuration from a string or file.
 	pub fn load_config(data: String, is_path: bool) -> Self {
 		let datar = if is_path {
-			fs::read_to_string(data.to_owned()).unwrap_or_else(|_| DEFAULT_CONFIG.to_owned())
+			fs::read_to_string(data.to_owned()).unwrap_or_else(|_| {
+				println!("[Warn]: Unable to find configuration file, using default configuration.");
+				fs::write(data, DEFAULT_CONFIG).unwrap_or_else(|_err| {
+					println!("[Warn]: Unable to write default configuration to disk!");
+				});
+				DEFAULT_CONFIG.to_owned()
+			})
 		} else {
-			data.to_owned()
+			data
 		};
 
-		let conft: ConfStruct = toml::from_str(&datar).unwrap_or_else(|_err| {
-			println!("[Fatal]: Unable to parse configuration!");
+		let conft: ConfStruct = toml::from_str(&datar).unwrap_or_else(|err| {
+			println!("[Fatal]: Unable to parse configuration! Debugging information will be printed below.");
+			println!("{}", err);
 			process::exit(1);
 		});
-
-		if is_path {
-			fs::write(data, datar).unwrap_or_else(|_err| {
-				println!("[Warn]: Unable to write configuration!");
-			});
-		}
 
 		Self {
 			caching_timeout: conft.content.caching_timeout,
@@ -168,7 +173,7 @@ impl Config {
 			hsts: conft.content.hsts,
 			hidden: {
 				let mut tmp = conft.content.hide.to_owned();
-				tmp.push("ssl".to_owned());
+				tmp.push(conft.server.cert_folder.to_owned());
 				tmp.push("redir".to_owned());
 				tmp.sort_unstable();
 				tmp
@@ -241,6 +246,7 @@ impl Config {
 			log_format: conft.server.log_format,
 			http_addr: conft.server.http_addr,
 			tls_addr: conft.server.tls_addr,
+			cert_folder: conft.server.cert_folder,
 		}
 	}
 }
@@ -298,5 +304,6 @@ mod tests {
 		assert_eq!(conf.log_format, "simple".to_owned());
 		assert_eq!(conf.http_addr, "[::]:80".to_owned());
 		assert_eq!(conf.tls_addr, "[::]:443".to_owned());
+		assert_eq!(conf.cert_folder, "ssl".to_owned());
 	}
 }
