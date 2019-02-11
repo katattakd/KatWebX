@@ -1,0 +1,75 @@
+# default.toml - KatWebX's Default Configuration.
+# Note that regex can be enabled for some fields by adding r# to the beginning of the string.
+
+[server] # Server related settings.
+# http_addr and tls_addr specify the address and port KatWebX should bind to.
+# When using socket listening, these values are ignored.
+http_addr = "[::]:80"
+tls_addr = "[::]:443"
+
+# stream_timeout controls the maximum amount of time the connection can stay open (in seconds).
+stream_timeout = 20
+
+# log_format controls the format used for logging requests.
+# Supported values are combinedvhost, combined, commonvhost, common, simpleplus, simple, minimal, and none.
+log_format = "simple"
+
+# cert_folder controls the folder used for storing TLS certificates, encryption keys, and OCSP data.
+cert_folder = "ssl"
+
+
+[content] # Content related settings.
+# protect allows prevention of some common security issues through the use of HTTP headers.
+# Note that this can break some badly designed sites, and should be tested before use in production.
+protect = true
+
+# caching_timeout controls how long the content is cached by the client (in hours).
+caching_timeout = 4
+
+# compress_files allows the server to save brotli compressed versions of files to the disk.
+# When this is disabled, all data will be compressed on-the-fly, severely reducing peformance.
+# Note that this only prevents the creation of new brotli files, existing brotli files will still be served.
+compress_files = true
+
+# hsts forces clients to use HTTPS, through the use of HTTP headers and redirects.
+# Note that this will also enable HSTS preloading. Once you are on the HSTS preload list, it's very difficult to get off of it.
+# You can request for your site to be added to the HSTS preload list here: https://hstspreload.org/
+hsts = false
+
+# hide specifies a list of folders which can't be used to serve content. This field supports regex.
+# Note that the certificate folder is automatically included in this, and hidden folders are always ignored.
+hide = ["src", "r#tar.*"]
+
+
+[[proxy]] # HTTP reverse proxy
+# The host to be proxied. When using regex in this field, a URL without the protocol is provided as input instead.
+location = "proxy.local"
+
+# The destination for proxied requests. When using HTTPS, a valid TLS certificate is required.
+dest = "https://kittyhacker101.tk"
+
+
+[[proxy]]
+location = "r#localhost/proxy[0-9]"
+dest = "http://localhost:8081"
+
+
+[[redir]] # HTTP redirects
+# The url (without the protocol) that this redirect affects. This field supports regex.
+location = "localhost/redir"
+
+# The destination that the client is redirected to.
+dest = "https://kittyhacker101.tk"
+
+
+[[redir]]
+location = "r#localhost/redir2.*"
+dest = "https://google.com"
+
+
+[[auth]] # HTTP basic authentication
+# The url (without the protocol) that this affects. This field must be regex.
+location = "r#localhost/demopass.*"
+
+# The username and password required to get access to the resource, split by a ":" character.
+login = "admin:passwd"

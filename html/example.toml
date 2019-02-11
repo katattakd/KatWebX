@@ -1,0 +1,45 @@
+# example.toml - An example of a sensible configuration for a mostly static website.
+
+[server]
+# You can usually keep these as-is.
+http_addr = "[::]:80"
+tls_addr = "[::]:443"
+cert_folder = "ssl"
+
+# A stream timeout of 20 is good enough for transfering small files. If you are serving large files, increasing this is recommended.
+stream_timeout = 20
+
+# To increase the peformance on heavily-loaded sites (and prevent the console from being spammed), the config format should be set to minimal. This only logs HTTP errors, and does only minimal parsing of the URL.
+# Websites which receive less load will usually be fine using simple or simpleplus configuration formats. If you intend to feed KatWebX's output into another program, instead of reading it directly, a more complex format like combinedvhost will work well.
+log_format = "minimal"
+
+[content]
+# Setting protect to true obviously isn't going to make your website unhackable, but it can protect against some forms of XSS, prevents issues with browser MIME sniffing, and stops clickjacking. Enabling this whenever possible is highly recommended.
+protect = true
+
+# Most sites don't change too often, so having the client cache content for 12 hours should work well.
+caching_timeout = 12
+
+# Brotli compression heavily reduces bandwidth usage. When compress_files is enabled, it saves compressed varients of files, instead of doing compression on the fly, and allows for higher levels of compression to be used.
+compress_files = true
+
+# If you intend to make an internet-facing site, HTTPS is a necessity. Most clients won't automatically use HTTPS, so it's highly recommended than you force clients to use HTTPS using HSTS (and add your site to the HSTS preload list at https://hstspreload.org/).
+hsts = true
+
+# Hiding your source code and target directories is recommended if you are exposing a development version of KatWebX to the internet.
+hide = ["src", "target"]
+
+
+[[proxy]] # Reverse proxy dynamic content to a seperate server.
+location = "r#my.site/dynamic"
+dest = "http://localhost:8081"
+
+
+[[redir]] # Redirect users from www.my.site to my.site
+location = "r#www.my.site.*"
+dest = "https://my.site"
+
+
+[[auth]] # Prevent users from accessing content you don't want them to see.
+location = "r#my.site/totallynotmynudes.*"
+login = "bfFNRu:uuO8oCIaLZjv4Zy" # Using a complex username and password is recommended to protect against brute-force attacks. According to howsecureismypassword.net, it would take 35 quintillion years to brute-force this login.

@@ -15,7 +15,7 @@ Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are l
  - June 13 - KatWeb is given EOL status, and is discontinued. For users who still rely on KatWeb, per-person upgrade support and additional patches to KatWeb will be available on request until December 16, 2019.
 
 ## Current Features
-- Flexible config parsing
+- Easy to read TOML configuration
 - Regex-based redirects
 - Compressed regex-based reverse proxy
 - Websocket reverse proxying

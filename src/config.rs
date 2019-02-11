@@ -8,7 +8,7 @@ use std::{collections::HashMap, fs, process};
 use regex::RegexSet;
 
 // The default configuration for the server to use.
-pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Configuration. Please make sure you edit this file before running KatWebX.
+pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Configuration.
 # Note that regex can be enabled for some fields by adding r# to the beginning of the string.
 
 [server] # Server related settings.
@@ -30,7 +30,7 @@ cert_folder = "ssl"
 
 [content] # Content related settings.
 # protect allows prevention of some common security issues through the use of HTTP headers.
-# Note that this may break some sites, and slightly reduces logging information.
+# Note that this can break some badly designed sites, and should be tested before use in production.
 protect = true
 
 # caching_timeout controls how long the content is cached by the client (in hours).
@@ -43,7 +43,7 @@ compress_files = true
 
 # hsts forces clients to use HTTPS, through the use of HTTP headers and redirects.
 # Note that this will also enable HSTS preloading. Once you are on the HSTS preload list, it's very difficult to get off of it.
-# You can request for your site to be added to the HSTS preload list here: r#localhost/redir2.*https://hstspreload.org/
+# You can request for your site to be added to the HSTS preload list here: https://hstspreload.org/
 hsts = false
 
 # hide specifies a list of folders which can't be used to serve content. This field supports regex.

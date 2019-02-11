@@ -8,7 +8,7 @@
 	<h3>Welcome to KatWebX!</h3>
 	<p>KatWebX is an extremely fast web-server and reverse proxy for the modern web. Its features are listed below.</p>
 	<ul>
-		<li>Flexible config parsing</li>
+		<li>Easy to read TOML configuration</li>
 		<li>Regex-based redirects</li>
 		<li>Compressed regex-based reverse proxy</li>
 		<li>Websocket reverse proxying</li>
@@ -39,7 +39,7 @@
 				<li>/index.html - Root index page.</li>
 			</ul>
 		</li>
-		<li>/ssl/ - Server TLS certificates.
+		<li>/ssl/ - Stores TLS certificates, encryption keys, and OCSP data. The location of this folder can be changed through the use of the server.cert_folder configuration option.
 			<ul>
 				<li>/default.crt - Default TLS certificate.</li>
 				<li>/default.pem - Default certificate key.</li>
@@ -59,52 +59,9 @@
 
 	<hr>
 	<h3>Global configuration</h3>
-	<p>KatWebX's global configuration is stored in the /conf.json file. Changes made to this file only take effect after KatWebX has been restarted.</p>
-	<ul>
-		<li>cachingTimeout (default: 4) - How long requests should be cached by the client, in hours. Setting this to zero will disable client-side caching.</li>
-		<li>streamTimeout (default: 20) - The maximum amount of time a connection can be kept open, in seconds. If you intend to transfer large files, setting this higher is recommended.</li>
-		<li>hsts (default: false) - Send HSTS headers, and redirect HTTP requests to HTTPS. This will enable HSTS preloading.</li>
-		<li>proxy (array) - HTTP(S) reverse proxy.
-			<ul>
-				<li>location (type: host, regex: url) - The location where the proxy can be accessed.</li>
-				<li>host (type: absolute-url) - The URL of the location being proxied.</li>
-			</ul>
-		</li>
-		<li>redir (array) - Permanent HTTP redirects.
-			<ul>
-				<li>location (type, regex: url) - The location the redirect affects.</li>
-				<li>dest (type: absolute-url) - The URL to redirect to.</li>
-			</ul>
-		</li>
-		<li>auth (array) - HTTP basic authentication.
-			<ul>
-				<li>location (regex: url) - The location the password-protection affects.</li>
-				<li>login (type: login) - The credentials required to access the resource.</li>
-			</ul>
-		</li>
-		<li>hide (array: [type, regex: host]) - List of folders to ignore.</li>
-		<li>advanced - Advanced KatWebX configuration
-			<ul>
-				<li>protect (default: true) - Increase website security using HTTP headers.</li>
-				<li>compressfiles (default: true) - Automatically compress resources with Brotli compression. Disaling this will not prevent pre-compressed resources from being served, or disable on-the-fly compression.</li>
-				<li>logformat (type: logtype, default: simple) - Logging format used.</li>
-				<li>httpAddr (type: listen-host, default: [::]:80) - Location to listen for HTTP requests.</li>
-				<li>tlsAddr (type: listen-host, default: [::]:443) - Location to listen for HTTPS requests.</li>
-			</ul>
-		</li>
-	</ul>
-
-	<hr>
-	<h3>Configuration types</h3>
-	<p>Normal types are automatically used, regex types can be used by prefixing the configuration string with <code>#r</code>. When the string is set to its regex type, the string set in the configuration is parsed as regex.</p>
-	<ul>
-		<li>Host - An IPv4/IPv6 address or domain (ex. example.com)</li>
-		<li>Listen-host - An IPv4/IPv6 address and port (ex. 127.0.0.1:443)</li>
-		<li>Url - A URL without protocol (ex. example.com/page.html)</li>
-		<li>Absolute-url - A url with protocol (ex. https://example.com/page.html)</li>
-		<li>Login - A password and username split with <code>:</code> (ex. admin:passwd)</li>
-		<li>Logtype - A logging format. Supported values: combinedvhost, combined, commonvhost, common, simpleplus, simple, minimal, none</li>
-	</ul>
+	<p>KatWebX's global configuration is stored in the /conf.toml file. Changes made to this file only take effect after KatWebX has been restarted.</p>
+	<p>You can pass configuration files to KatWebX as command-line arguments, like the example shown below. <code>./katwebx myconfig.toml</code></p>
+	<p>An example of a sensible real-world configuration can be found <a href="example.toml">here</a>, and the default configuration file can be found <a href="default.toml">here</a>.</p>
 
 	<hr>
 	<h3>Loading certificate and key pairs</h3>
@@ -117,7 +74,7 @@
 
 	<hr>
 	<h3>Forcing encrypted connections using HSTS</h3>
-	<p>It's highly recommended that you make all internet-facing sites HTTPS only. To do so, you can enable the <code>conf.hsts</code> configuration option. This will automatically redirect all requests to HTTPS, and set an HSTS header, to allow for HSTS preloading. You can then request for your site to be added to the HSTS preload list <a href="https://hstspreload.org/">here</a>.</p>
+	<p>It's highly recommended that you make all internet-facing sites HTTPS only. To do so, you can enable the <code>content.hsts</code> configuration option. This will automatically redirect all requests to HTTPS, and set an HSTS header, to allow for HSTS preloading. You can then request for your site to be added to the HSTS preload list <a href="https://hstspreload.org/">here</a>.</p>
 	<p>Note: Once you are on the preload list, it is very difficult to get off it. Make sure your site works properly over HTTPS before doing this!</p>
 
 	<hr>
@@ -134,12 +91,16 @@
 	<p>Although KatWebX is designed to be high-peformance, it may need a bit of extra tweaking when under extreme load. Here's some tips on how to improve KatWebX's peformance.</p>
 	<ul>
 		<li>Use the latest version of KatWebX. KatWebX is constantly being optimized, and newer versions can bring noticeable performance improvements (and even if they don't, using outdated releases can put your server's security at risk).</li>
-		<li>Set conf.advanced.logformat to "minimal" or "none". Disabling logging heavily reduces latency and CPU load.</li>
+		<li>Set server.log_format to "minimal" or "none". Disabling logging heavily reduces latency and CPU load.</li>
 		<li>Avoid using regex in the config whenever possible. Heavy use of regex can be extremely intensive.</li>
 		<li>Try keeping files below 64kb in size. Small files can be copied directly into the response, which is ~2x faster than using streaming IO.</li>
 		<li>If you are using RSA key sizes greater than 2048, consider switching to ECDSA instead.</li>
 		<li>Avoid using unknown extensions. When the file extension is unknown, the server has to sniff the MIME type manually, which has a significant peformance impact.</li>
-		<li>Make sure conf.advanced.compressfiles is enabled. This heavily reduces CPU load by pre-compressing files, instead of requiring data to be compressed in realtime.</li>
-		<li>Make sure conf.cachingTimeout is set to a high value. More client side caching will result in fewer requests to the server.</li>
+		<li>Make sure content.compress_files is enabled. This heavily reduces CPU load by pre-compressing files, instead of requiring data to be compressed in realtime.</li>
+		<li>Make sure content.caching_timeout is set to a high value. More client side caching will result in fewer requests to the server.</li>
 	</ul>
+
+	<hr>
+	<p>This page shows the documentation for KatWebX v1.0.0-pre. The latest documentation for KatWebX can be viewed at <a href="https://katwebx.kittyhacker101.tk/">katwebx.kittyhacker101.tk</a>.</p>
+
 </body>
