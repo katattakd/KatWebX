@@ -9,12 +9,14 @@ use actix_web::{actix::Actor, Binary, ws, ws::{Client, ClientWriter, Message, Pr
 use futures::Future;
 use std::{thread, sync::mpsc::{Receiver, Sender, channel}, time::{Duration, Instant}};
 
-struct WsClient(ClientWriter, Sender<String>, Sender<Binary>, Instant);
+struct WsClient(ClientWriter, Sender<ClientCommand>, Instant);
 
 #[derive(Message)]
 enum ClientCommand {
 	Str(String),
 	Bin(Binary),
+	Ping(String),
+	Pong(String),
 }
 
 impl Actor for WsClient {
@@ -30,11 +32,10 @@ impl Actor for WsClient {
 impl WsClient {
 	fn hb(&self, ctx: &mut Context<Self>) {
 		ctx.run_interval(Duration::from_secs(5), |act, _ctx| {
-			if Instant::now().duration_since(act.3) > Duration::from_secs(20) {
+			if Instant::now().duration_since(act.2) > Duration::from_secs(20) {
 				act.0.close(None);
 				return;
 			}
-			act.0.ping("");
 		});
 	}
 }
@@ -46,6 +47,8 @@ impl Handler<ClientCommand> for WsClient {
 		match msg {
 			ClientCommand::Str(text) => {self.0.text(text)},
 			ClientCommand::Bin(bin) => {self.0.binary(bin)},
+			ClientCommand::Ping(msg) => {self.0.ping(&msg)},
+			ClientCommand::Pong(msg) => {self.0.pong(&msg)},
 		}
     }
 }
@@ -54,14 +57,15 @@ impl StreamHandler<Message, ProtocolError> for WsClient {
     fn handle(&mut self, msg: Message, ctx: &mut Self::Context) {
 		match msg {
 			Message::Ping(msg) => {
-				self.3 = Instant::now();
-				self.0.pong(&msg);
+				let _ = self.1.send(ClientCommand::Ping(msg));
+				self.2 = Instant::now();
 			}
-			Message::Pong(_) => {
-				self.3 = Instant::now();
+			Message::Pong(msg) => {
+				let _ = self.1.send(ClientCommand::Pong(msg));
+				self.2 = Instant::now();
 			}
-			Message::Text(text) => {let _ = self.1.send(text);},
-			Message::Binary(bin) => {let _ = self.2.send(bin);},
+			Message::Text(text) => {let _ = self.1.send(ClientCommand::Str(text));},
+			Message::Binary(bin) => {let _ = self.1.send(ClientCommand::Bin(bin));},
 			Message::Close(_) => {
 				ctx.stop();
 			}
@@ -75,10 +79,8 @@ impl StreamHandler<Message, ProtocolError> for WsClient {
 
 pub struct WsProxy {
 	hb: Instant,
-	send_t: Sender<String>,
-	recv_t: Receiver<String>,
-	send_b: Sender<Binary>,
-	recv_b: Receiver<Binary>,
+	send: Sender<ClientCommand>,
+	recv: Receiver<ClientCommand>,
 }
 
 impl Actor for WsProxy {
@@ -94,9 +96,6 @@ impl WsProxy {
 		let (sender1, receiver1) = channel();
 		let (sender2, receiver2) = channel();
 
-		let (sender3, receiver3) = channel();
-		let (sender4, receiver4) = channel();
-
 		Arbiter::spawn(
 			Client::new(["ws", trim_prefix("http", path)].concat())
 				.connect()
@@ -104,14 +103,11 @@ impl WsProxy {
 				.map(|(reader, writer)| {
 					let addr = WsClient::create(|ctx| {
 						WsClient::add_stream(reader, ctx);
-						WsClient(writer, sender2, sender4, Instant::now())
+						WsClient(writer, sender2, Instant::now())
 					});
 					thread::spawn(move || {
 						for cmd in receiver1.iter() {
-							addr.do_send(ClientCommand::Str(cmd));
-						};
-						for cmd in receiver3.iter() {
-							addr.do_send(ClientCommand::Bin(cmd));
+							addr.do_send(cmd);
 						};
 					});
 				}),
@@ -119,10 +115,8 @@ impl WsProxy {
 
 		Self {
 			hb: Instant::now(),
-			send_t: sender1,
-			recv_t: receiver2,
-			send_b: sender3,
-			recv_b: receiver4,
+			send: sender1,
+			recv: receiver2,
 		}
 	}
 
@@ -132,16 +126,17 @@ impl WsProxy {
 				ctx.stop();
 				return;
 			}
-			ctx.ping("");
 		});
 	}
 	fn hc(&self, ctx: &mut <Self as Actor>::Context) {
 		ctx.run_interval(Duration::from_millis(250), |act, ctx| {
-			for msg in act.recv_t.try_iter() {
-				ctx.text(msg);
-			};
-			for msg in act.recv_b.try_iter() {
-				ctx.binary(msg);
+			for msg in act.recv.try_iter() {
+				match msg {
+					ClientCommand::Str(text) => {ctx.text(text)},
+					ClientCommand::Bin(bin) => {ctx.binary(bin)},
+					ClientCommand::Ping(msg) => {ctx.ping(&msg)},
+					ClientCommand::Pong(msg) => {ctx.pong(&msg)},
+				}
 			};
 		});
 	}
@@ -151,14 +146,15 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for WsProxy {
 	fn handle(&mut self, msg: ws::Message, ctx: &mut Self::Context) {
         match msg {
             Message::Ping(msg) => {
-                self.hb = Instant::now();
-                ctx.pong(&msg);
-            }
-            Message::Pong(_) => {
+				let _ = self.send.send(ClientCommand::Ping(msg));
                 self.hb = Instant::now();
             }
-            Message::Text(text) => {let _ = self.send_t.send(text);},
-            Message::Binary(bin) => {let _ = self.send_b.send(bin);},
+            Message::Pong(msg) => {
+				let _ = self.send.send(ClientCommand::Pong(msg));
+                self.hb = Instant::now();
+            }
+            Message::Text(text) => {let _ = self.send.send(ClientCommand::Str(text));},
+            Message::Binary(bin) => {let _ = self.send.send(ClientCommand::Bin(bin));},
             Message::Close(_) => {
                 ctx.stop();
             }
