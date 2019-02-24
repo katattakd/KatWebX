@@ -36,7 +36,7 @@ mod certs;
 use actix::{Addr, System};
 use actix_web::{actix::Actor, server, server::{RustlsAcceptor, ServerFlags}, client, client::ClientConnector, App, Body, Binary, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, HttpMessage, AsyncResponder, Error, dev::{ConnectionInfo, Payload}, ws};
 use futures::future::{Future, result};
-use std::{process, cmp, fs, string::String, fs::File, path::Path, io::Read, time::Duration, sync::Arc, ffi::OsStr};
+use std::{env, process, cmp, fs, string::String, fs::File, path::Path, io::Read, time::Duration, sync::Arc, ffi::OsStr};
 use bytes::Bytes;
 use base64::decode;
 use mime_sniffer::MimeTypeSniffer;
@@ -478,6 +478,10 @@ fn main() {
 	let mut listenfd = ListenFd::from_env();
 	lazy_static::initialize(&conf);
 	lazy_static::initialize(&clientconn);
+	env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
+		println!("[Fatal]: Unable to open root folder!");
+		process::exit(1);
+	});
 
 	let mut tconfig = ServerConfig::new(NoClientAuth::new());
 	tconfig.ciphersuites = ALL_CIPHERSUITES.to_vec().into_iter().filter(|x| x.bulk != BulkAlgorithm::AES_128_GCM).collect();
