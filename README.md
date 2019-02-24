@@ -16,6 +16,7 @@ Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are l
 
 ## Current Features
 - Easy to read TOML configuration
+- Flexible configuration parsing
 - Regex-based redirects
 - Compressed regex-based reverse proxy
 - Websocket reverse proxying

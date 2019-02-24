@@ -9,6 +9,7 @@
 	<p>KatWebX is an extremely fast web-server and reverse proxy for the modern web. Its features are listed below.</p>
 	<ul>
 		<li>Easy to read TOML configuration</li>
+		<li>Flexible configuration parsing</li>
 		<li>Regex-based redirects</li>
 		<li>Compressed regex-based reverse proxy</li>
 		<li>Websocket reverse proxying</li>
@@ -27,7 +28,7 @@
 
 	<hr>
 	<h3>Folder structure</h3>
-	<p>KatWebX keeps all of its data contained with its folder. The folder structure is listed below.</p>
+	<p>KatWebX keeps all of its data contained with its root folder. The folder structure is listed below.</p>
 	<ul>
 		<li>/html/ - Default web server root.
 			<ul>
@@ -54,7 +55,7 @@
 				<li>/*.rs - Rust source code.</li>
 			</ul>
 		</li>
-		<li>/conf.json - Global configuration file.</li>
+		<li>/conf.toml - Global configuration file.</li>
 	</ul>
 
 	<hr>

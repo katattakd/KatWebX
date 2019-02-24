@@ -8,81 +8,84 @@ use std::{collections::HashMap, fs, process};
 use regex::RegexSet;
 
 // The default configuration for the server to use.
-pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Configuration.
+pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Default Configuration.
 # Note that regex can be enabled for some fields by adding r# to the beginning of the string.
 
 [server] # Server related settings.
 # http_addr and tls_addr specify the address and port KatWebX should bind to.
 # When using socket listening, these values are ignored.
-http_addr = "[::]:80"
-tls_addr = "[::]:443"
+#http_addr = "[::]:80"
+#tls_addr = "[::]:443"
 
 # stream_timeout controls the maximum amount of time the connection can stay open (in seconds).
-stream_timeout = 20
+#stream_timeout = 20
 
 # log_format controls the format used for logging requests.
 # Supported values are combinedvhost, combined, commonvhost, common, simpleplus, simple, minimal, and none.
 log_format = "simple"
 
 # cert_folder controls the folder used for storing TLS certificates, encryption keys, and OCSP data.
-cert_folder = "ssl"
+#cert_folder = "ssl"
+
+# root_folder controls the web server root. The default folder (html) and per-domain folders will be stored in here.
+#root_folder = "."
 
 
 [content] # Content related settings.
 # protect allows prevention of some common security issues through the use of HTTP headers.
 # Note that this can break some badly designed sites, and should be tested before use in production.
-protect = true
+#protect = true
 
 # caching_timeout controls how long the content is cached by the client (in hours).
-caching_timeout = 4
+#caching_timeout = 4
 
 # compress_files allows the server to save brotli compressed versions of files to the disk.
 # When this is disabled, all data will be compressed on-the-fly, severely reducing peformance.
 # Note that this only prevents the creation of new brotli files, existing brotli files will still be served.
-compress_files = true
+#compress_files = true
 
 # hsts forces clients to use HTTPS, through the use of HTTP headers and redirects.
 # Note that this will also enable HSTS preloading. Once you are on the HSTS preload list, it's very difficult to get off of it.
 # You can request for your site to be added to the HSTS preload list here: https://hstspreload.org/
-hsts = false
+#hsts = false
 
 # hide specifies a list of folders which can't be used to serve content. This field supports regex.
 # Note that the certificate folder is automatically included in this, and hidden folders are always ignored.
 hide = ["src", "r#tar.*"]
 
 
-[[proxy]] # HTTP reverse proxy
+#[[proxy]] # HTTP reverse proxy
 # The host to be proxied. When using regex in this field, a URL without the protocol is provided as input instead.
-location = "proxy.local"
+#location = "proxy.local"
 
 # The destination for proxied requests. When using HTTPS, a valid TLS certificate is required.
-dest = "https://kittyhacker101.tk"
+#dest = "https://kittyhacker101.tk"
 
 
-[[proxy]]
-location = "r#localhost/proxy[0-9]"
-dest = "http://localhost:8081"
+#[[proxy]]
+#location = "r#localhost/proxy[0-9]"
+#dest = "http://localhost:8081"
 
 
-[[redir]] # HTTP redirects
+#[[redir]] # HTTP redirects
 # The url (without the protocol) that this redirect affects. This field supports regex.
-location = "localhost/redir"
+#location = "localhost/redir"
 
 # The destination that the client is redirected to.
-dest = "https://kittyhacker101.tk"
+#dest = "https://kittyhacker101.tk"
 
 
-[[redir]]
-location = "r#localhost/redir2.*"
-dest = "https://google.com"
+#[[redir]]
+#location = "r#localhost/redir2.*"
+#dest = "https://google.com"
 
 
-[[auth]] # HTTP basic authentication
+#[[auth]] # HTTP basic authentication
 # The url (without the protocol) that this affects. This field must be regex.
-location = "r#localhost/demopass.*"
+#location = "r#localhost/demopass.*"
 
 # The username and password required to get access to the resource, split by a ":" character.
-login = "admin:passwd"
+#login = "admin:passwd"
 "##;
 
 pub struct Config {
@@ -105,6 +108,7 @@ pub struct Config {
 	pub http_addr: String,
 	pub tls_addr: String,
 	pub cert_folder: String,
+	pub root_folder: String,
 }
 
 #[derive(Clone, Deserialize)]
@@ -118,20 +122,21 @@ struct ConfStruct {
 
 #[derive(Clone, Deserialize)]
 struct ConfStructServer {
-	http_addr: String,
-	tls_addr: String,
-	stream_timeout: usize,
-	log_format: String,
-	cert_folder: String
+	http_addr: Option<String>,
+	tls_addr: Option<String>,
+	stream_timeout: Option<usize>,
+	log_format: Option<String>,
+	cert_folder: Option<String>,
+	root_folder: Option<String>
 }
 
 #[derive(Clone, Deserialize)]
 struct ConfStructContent {
-	protect: bool,
-	caching_timeout: i64,
-	compress_files: bool,
-	hsts: bool,
-	hide: Vec<String>
+	protect: Option<bool>,
+	caching_timeout: Option<i64>,
+	compress_files: Option<bool>,
+	hsts: Option<bool>,
+	hide: Option<Vec<String>>
 }
 
 #[derive(Clone, Deserialize)]
@@ -168,18 +173,18 @@ impl Config {
 		});
 
 		Self {
-			caching_timeout: conft.content.caching_timeout,
-			stream_timeout: conft.server.stream_timeout,
-			hsts: conft.content.hsts,
+			caching_timeout: conft.content.caching_timeout.unwrap_or(4),
+			stream_timeout: conft.server.stream_timeout.unwrap_or(20),
+			hsts: conft.content.hsts.unwrap_or(false),
 			hidden: {
-				let mut tmp = conft.content.hide.to_owned();
-				tmp.push(conft.server.cert_folder.to_owned());
+				let mut tmp = conft.content.hide.to_owned().unwrap_or_else(Vec::new);
+				tmp.push(conft.server.cert_folder.to_owned().unwrap_or_else(|| "ssl".to_owned()));
 				tmp.push("redir".to_owned());
 				tmp.sort_unstable();
 				tmp
 			},
 			hiddenx: {
-				parse_regex(conft.content.hide).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
+				parse_regex(conft.content.hide.unwrap_or_else(Vec::new)).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
 			},
 			lredir: {
 				let mut tmp = Vec::new();
@@ -241,12 +246,13 @@ impl Config {
 				}
 				tmp
 			},
-			protect: conft.content.protect,
-			compress_files: conft.content.compress_files,
-			log_format: conft.server.log_format,
-			http_addr: conft.server.http_addr,
-			tls_addr: conft.server.tls_addr,
-			cert_folder: conft.server.cert_folder,
+			protect: conft.content.protect.unwrap_or(true),
+			compress_files: conft.content.compress_files.unwrap_or(true),
+			log_format: conft.server.log_format.unwrap_or_else(|| "minimal".to_owned()),
+			http_addr: conft.server.http_addr.unwrap_or_else(|| "[::]:80".to_owned()),
+			tls_addr: conft.server.tls_addr.unwrap_or_else(|| "[::]:443".to_owned()),
+			cert_folder: conft.server.cert_folder.unwrap_or_else(|| "ssl".to_owned()),
+			root_folder: conft.server.root_folder.unwrap_or_else(|| ".".to_owned()),
 		}
 	}
 }
@@ -272,12 +278,12 @@ fn parse_regex(array: Vec<String>) -> Result<RegexSet, regex::Error> {
 #[cfg(test)]
 mod tests {
 	use {config};
-	fn default_conf() -> config::Config {
-		config::Config::load_config(config::DEFAULT_CONFIG.to_owned(), false)
+	fn test_conf() -> config::Config {
+		config::Config::load_config(config::TEST_CONFIG.to_owned(), false)
 	}
 	#[test]
-	fn test_conf_defaults() {
-		let conf = default_conf();
+	fn test_conf_parsing() {
+		let conf = test_conf();
 		assert_eq!(conf.caching_timeout, 4);
 		assert_eq!(conf.stream_timeout, 20);
 		assert_eq!(conf.hsts, false);
@@ -305,5 +311,56 @@ mod tests {
 		assert_eq!(conf.http_addr, "[::]:80".to_owned());
 		assert_eq!(conf.tls_addr, "[::]:443".to_owned());
 		assert_eq!(conf.cert_folder, "ssl".to_owned());
+		assert_eq!(conf.root_folder, ".".to_owned());
+	}
+	fn default_conf() -> config::Config {
+		config::Config::load_config(config::DEFAULT_CONFIG.to_owned(), false)
+	}
+	#[test]
+	fn test_conf_defaults() {
+		let conf = default_conf();
+		assert_eq!(conf.caching_timeout, 4);
+		assert_eq!(conf.stream_timeout, 20);
+		assert_eq!(conf.hsts, false);
+		assert_eq!(conf.protect, true);
+		assert_eq!(conf.compress_files, true);
+		assert_eq!(conf.log_format, "simple".to_owned());
+		assert_eq!(conf.http_addr, "[::]:80".to_owned());
+		assert_eq!(conf.tls_addr, "[::]:443".to_owned());
+		assert_eq!(conf.cert_folder, "ssl".to_owned());
+		assert_eq!(conf.root_folder, ".".to_owned());
 	}
 }
+
+// Configuration used for unit testing.
+#[allow(dead_code)]
+pub const TEST_CONFIG: &str = r##"# test.toml - KatWebX configuration used for internal unit testing.
+[server]
+http_addr = "[::]:80"
+tls_addr = "[::]:443"
+stream_timeout = 20
+log_format = "simple"
+cert_folder = "ssl"
+root_folder = "."
+[content]
+protect = true
+caching_timeout = 4
+compress_files = true
+hsts = false
+hide = ["src", "r#tar.*"]
+[[proxy]]
+location = "proxy.local"
+dest = "https://kittyhacker101.tk"
+[[proxy]]
+location = "r#localhost/proxy[0-9]"
+dest = "http://localhost:8081"
+[[redir]]
+location = "localhost/redir"
+dest = "https://kittyhacker101.tk"
+[[redir]]
+location = "r#localhost/redir2.*"
+dest = "https://google.com"
+[[auth]]
+location = "r#localhost/demopass.*"
+login = "admin:passwd"
+"##;

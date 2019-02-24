@@ -473,10 +473,6 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 
 // Load configuration, SSL certs, then attempt to start the program.
 fn main() {
-	for argument in std::env::args() {
-    	println!("{}", argument);
-	}
-
 	println!("[Info]: Starting KatWebX...");
 	let sys = System::new("katwebx");
 	let mut listenfd = ListenFd::from_env();
@@ -580,7 +576,7 @@ fn main() {
 mod tests {
 	use {config, handle_path, trim_port, trim_host, trim_prefix, trim_suffix, trim_regex};
 	fn default_conf() -> config::Config {
-		config::Config::load_config(config::DEFAULT_CONFIG.to_owned(), false)
+		config::Config::load_config(config::TEST_CONFIG.to_owned(), false)
 	}
 	#[test]
 	fn test_trim_port() {
