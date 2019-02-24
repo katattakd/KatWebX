@@ -111,9 +111,9 @@ pub struct Config {
 struct ConfStruct {
 	server: ConfStructServer,
 	content: ConfStructContent,
-	proxy: Vec<ConfStructPrRe>,
-	redir: Vec<ConfStructPrRe>,
-	auth: Vec<ConfStructAuth>
+	proxy: Option<Vec<ConfStructPrRe>>,
+	redir: Option<Vec<ConfStructPrRe>>,
+	auth: Option<Vec<ConfStructAuth>>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -183,7 +183,7 @@ impl Config {
 			},
 			lredir: {
 				let mut tmp = Vec::new();
-				for item in conft.redir.to_owned() {
+				for item in conft.redir.to_owned().unwrap_or_else(Vec::new) {
 					tmp.push(item.location);
 				}
 				tmp.sort_unstable();
@@ -191,14 +191,14 @@ impl Config {
 			},
 			redirx: {
 				let mut tmp = Vec::new();
-				for item in conft.redir.to_owned() {
+				for item in conft.redir.to_owned().unwrap_or_else(Vec::new) {
 					tmp.push(item.location);
 				}
 				parse_regex(tmp).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
 			},
 			redirmap: {
 				let mut tmp = HashMap::new();
-				for item in conft.redir {
+				for item in conft.redir.unwrap_or_else(Vec::new) {
 					tmp.insert(item.location, item.dest);
 				}
 				tmp
@@ -206,7 +206,7 @@ impl Config {
 
 			lproxy: {
 				let mut tmp = Vec::new();
-				for item in conft.proxy.to_owned() {
+				for item in conft.proxy.to_owned().unwrap_or_else(Vec::new) {
 					tmp.push(item.location);
 				}
 				tmp.sort_unstable();
@@ -214,14 +214,14 @@ impl Config {
 			},
 			proxyx: {
 				let mut tmp = Vec::new();
-				for item in conft.proxy.to_owned() {
+				for item in conft.proxy.to_owned().unwrap_or_else(Vec::new) {
 					tmp.push(item.location);
 				}
 				parse_regex(tmp).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
 			},
 			proxymap: {
 				let mut tmp = HashMap::new();
-				for item in conft.proxy {
+				for item in conft.proxy.unwrap_or_else(Vec::new) {
 					tmp.insert(item.location, item.dest);
 				}
 				tmp
@@ -229,14 +229,14 @@ impl Config {
 
 			authx: {
 				let mut tmp = Vec::new();
-				for item in conft.auth.to_owned() {
+				for item in conft.auth.to_owned().unwrap_or_else(Vec::new) {
 					tmp.push(item.location);
 				}
 				parse_regex(tmp).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
 			},
 			authmap: {
 				let mut tmp = HashMap::new();
-				for item in conft.auth {
+				for item in conft.auth.unwrap_or_else(Vec::new) {
 					tmp.insert(item.location, item.login);
 				}
 				tmp
