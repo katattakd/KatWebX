@@ -85,7 +85,7 @@ fn handle_path(path: &str, host: &str, auth: &str, c: &Config) -> (String, Strin
 		_ if c.redirx.is_match(fp) => {
 			let mut r = "$x";
 			if let Some(regx) = c.redirx.matches(fp).iter().next() {r = &c.redirx.patterns()[regx]}
-			if let Some(link) = conf.redirmap.get(&["r#", r].concat()) {return ([link.to_owned(), trim_regex(r, fp)].concat(), "redir".to_owned(), None)}
+			if let Some(link) = c.redirmap.get(&["r#", r].concat()) {return ([link.to_owned(), trim_regex(r, fp)].concat(), "redir".to_owned(), None)}
 		},
 		_ if c.lredir.binary_search(fp).is_ok() => {
 			if let Some(link) = c.redirmap.get(fp) {return (link.to_owned(), "redir".to_owned(), None)}
