@@ -45,7 +45,7 @@ serde = "1.0.87"
 serde_derive = "1.0.87"
 
 # The libraires below should always use the lastest version whenever possible.
-actix-web = { version = ">=0.7.18", default-features = false, features = ["flate2-rust", "uds", "session", "rust-tls"] }
+actix-web = { version = ">=0.7.18", default-features = false, features = ["flate2-rust", "uds", "rust-tls"] }
 
 [profile.release]
 lto = true
