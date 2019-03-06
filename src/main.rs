@@ -369,7 +369,7 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 
 		log_data(&conf.log_format, 200, "WebProxy", req, &conn_info, None);
 		if req.headers().get(header::UPGRADE).unwrap_or(blankhead).to_str().unwrap_or("") == "websocket" {
-			return result(ws::start(req, WsProxy::new(&path))).responder()
+			return result(ws::start(req, WsProxy::new(&path, conf.websocket_timeout))).responder()
 		}
 		return proxy_request(&path, req.method().to_owned(), req.headers(), req.payload(), conn_info.remote().unwrap_or("127.0.0.1"))
 	}
@@ -416,7 +416,7 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 	// Parse a ranges header if it is present, and then turn a File into a stream.
 	let (length, offset) = stream::calculate_ranges(&req.drop_state(), finfo.len() as usize);
 	let has_range = offset != 0 || length as u64 != finfo.len();
-	let body = if length > 65_536 || has_range {
+	let body = if length > conf.max_streaming_len || has_range {
 		Body::Streaming(Box::new(stream::ChunkedReadFile {
 			offset,
 			size: length,
@@ -424,6 +424,7 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 			file: Some(f),
 			fut: None,
 			counter: 0,
+			chunk_size: conf.max_streaming_len,
 		}))
 	} else if length == 0 {
 		Body::Binary(Binary::Bytes(Bytes::from("\n")))

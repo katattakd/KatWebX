@@ -9,7 +9,7 @@ use actix_web::{actix::Actor, Binary, ws, ws::{Client, ClientWriter, Message, Pr
 use futures::Future;
 use std::{thread, sync::mpsc::{Receiver, Sender, channel}, time::{Duration, Instant}};
 
-struct WsClient(ClientWriter, Sender<ClientCommand>, Instant);
+struct WsClient(ClientWriter, Sender<ClientCommand>, Instant, u64);
 
 #[derive(Message)]
 enum ClientCommand {
@@ -32,7 +32,7 @@ impl Actor for WsClient {
 impl WsClient {
 	fn hb(&self, ctx: &mut Context<Self>) {
 		ctx.run_interval(Duration::from_secs(5), |act, _ctx| {
-			if Instant::now().duration_since(act.2) > Duration::from_secs(20) {
+			if Instant::now().duration_since(act.2) > Duration::from_secs(act.3) {
 				act.0.close(None);
 				return;
 			}
@@ -81,6 +81,7 @@ pub struct WsProxy {
 	hb: Instant,
 	send: Sender<ClientCommand>,
 	recv: Receiver<ClientCommand>,
+	timeout: u64,
 }
 
 impl Actor for WsProxy {
@@ -92,7 +93,7 @@ impl Actor for WsProxy {
 }
 
 impl WsProxy {
-	pub fn new(path: &str) -> Self {
+	pub fn new(path: &str, timeout: u64) -> Self {
 		let (sender1, receiver1) = channel();
 		let (sender2, receiver2) = channel();
 
@@ -100,10 +101,10 @@ impl WsProxy {
 			Client::new(["ws", trim_prefix("http", path)].concat())
 				.connect()
 				.map_err(|e| {println!("{:?}", e)})
-				.map(|(reader, writer)| {
-					let addr = WsClient::create(|ctx| {
+				.map(move |(reader, writer)| {
+					let addr = WsClient::create(move |ctx| {
 						WsClient::add_stream(reader, ctx);
-						WsClient(writer, sender2, Instant::now())
+						WsClient(writer, sender2, Instant::now(), timeout)
 					});
 					thread::spawn(move || {
 						for cmd in receiver1.iter() {
@@ -117,12 +118,13 @@ impl WsProxy {
 			hb: Instant::now(),
 			send: sender1,
 			recv: receiver2,
+			timeout,
 		}
 	}
 
 	fn hb(&self, ctx: &mut <Self as Actor>::Context) {
 		ctx.run_interval(Duration::from_secs(5), |act, ctx| {
-			if Instant::now().duration_since(act.hb) > Duration::from_secs(20) {
+			if Instant::now().duration_since(act.hb) > Duration::from_secs(act.timeout) {
 				ctx.stop();
 				return;
 			}

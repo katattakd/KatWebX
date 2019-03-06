@@ -150,6 +150,7 @@ pub struct ChunkedReadFile {
     pub file: Option<File>,
     pub fut: Option<futures_cpupool::CpuFuture<(File, Bytes), io::Error>>,
     pub counter: usize,
+	pub chunk_size: usize,
 }
 
 impl Stream for ChunkedReadFile {
@@ -175,9 +176,10 @@ impl Stream for ChunkedReadFile {
             Ok(Async::Ready(None))
         } else {
             let mut file = self.file.take().expect("Use after completion");
+			let chunk_sz = self.chunk_size.to_owned();
             self.fut = Some(self.cpu_pool.spawn_fn(move || {
                 let max_bytes: usize;
-                max_bytes = cmp::min(size.saturating_sub(counter), 65_536);
+                max_bytes = cmp::min(size.saturating_sub(counter), chunk_sz);
                 let mut buf = Vec::with_capacity(max_bytes);
                 file.seek(io::SeekFrom::Start(offset as u64))?;
                 let nbytes = file.by_ref().take(max_bytes as u64).read_to_end(&mut buf)?;

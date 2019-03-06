@@ -18,10 +18,23 @@ pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Default Configurati
 #tls_addr = "[::]:443"
 
 # stream_timeout controls the maximum amount of time the connection can stay open (in seconds).
+# The default value should be good enough for transfering small files. If you are serving large files, increasing this is recommended.
 #stream_timeout = 20
+
+# websocket_timeout controls the maximum amount of time a websocket connection can go without receving ping/pong frames before it is automatically closed.
+# Note that KatWebX's websocket proxy doesn't send ping/pong frames, it only proxies them.
+# The default value should be good enough for 90% of use cases, don't adjust this unless you need to.
+#websocket_timeout = 20
+
+# copy_chunk_size adjusts the maximum file size (in bytes) which can be directly copied into the response.
+# Files larger than this value are copied into the response in chunks of this size, which increases latency.
+# When the file is smaller than this value, it is copied directly into the response. This can heavily increase RAM usage on busy servers.
+# The default value should be good enough for 99% of use cases, don't adjust this unless you know what you are doing.
+#copy_chunk_size = 65536
 
 # log_format controls the format used for logging requests.
 # Supported values are combinedvhost, combined, commonvhost, common, simpleplus, simple, minimal, and none.
+# Note that logging can have a peformance impact on heavily loaded servers. If your server is under extreme load (50+ requests/second), setting the logging format to "minimal" or "none" can significantly increase peformance.
 log_format = "simple"
 
 # cert_folder controls the folder used for storing TLS certificates, encryption keys, and OCSP data.
@@ -32,25 +45,25 @@ log_format = "simple"
 
 
 [content] # Content related settings.
-# protect allows prevention of some common security issues through the use of HTTP headers.
+# protect allows prevention of some common security issues through the use of HTTP security headers.
 # Note that this can break some badly designed sites, and should be tested before use in production.
 #protect = true
 
 # caching_timeout controls how long the content is cached by the client (in hours).
-#caching_timeout = 4
+#caching_timeout = 12
 
 # compress_files allows the server to save brotli compressed versions of files to the disk.
 # When this is disabled, all data will be compressed on-the-fly, severely reducing peformance.
 # Note that this only prevents the creation of new brotli files, existing brotli files will still be served.
 #compress_files = true
 
-# hsts forces clients to use HTTPS, through the use of HTTP headers and redirects.
+# hsts forces all clients to use HTTPS, through the use of HTTP headers and redirects.
 # Note that this will also enable HSTS preloading. Once you are on the HSTS preload list, it's very difficult to get off of it.
-# You can request for your site to be added to the HSTS preload list here: https://hstspreload.org/
+# You can learn more about HSTS preloading and get your site added to the preload list here: https://hstspreload.org/
 #hsts = false
 
 # hide specifies a list of folders which can't be used to serve content. This field supports regex.
-# Note that the certificate folder is automatically included in this, and hidden folders are always ignored.
+# Note that the certificate folder is automatically included in this, and folders starting with "." are always ignored.
 hide = ["src", "r#tar.*"]
 
 
@@ -85,12 +98,14 @@ hide = ["src", "r#tar.*"]
 #location = "r#localhost/demopass.*"
 
 # The username and password required to get access to the resource, split by a ":" character.
+# Note that brute forcing logins isn't very difficult to do, so make sure you use a complex username and password.
 #login = "admin:passwd"
 "##;
 
 pub struct Config {
 	pub caching_timeout: i64,
 	pub stream_timeout: usize,
+	pub websocket_timeout: u64,
 	pub hsts: bool,
 	pub hidden: Vec<String>,
 	pub lredir: Vec<String>,
@@ -109,6 +124,7 @@ pub struct Config {
 	pub tls_addr: String,
 	pub cert_folder: String,
 	pub root_folder: String,
+	pub max_streaming_len: usize,
 }
 
 #[derive(Clone, Deserialize)]
@@ -125,9 +141,11 @@ struct ConfStructServer {
 	http_addr: Option<String>,
 	tls_addr: Option<String>,
 	stream_timeout: Option<usize>,
+	websocket_timeout: Option<u64>,
 	log_format: Option<String>,
 	cert_folder: Option<String>,
-	root_folder: Option<String>
+	root_folder: Option<String>,
+	copy_chunk_size: Option<usize>
 }
 
 #[derive(Clone, Deserialize)]
@@ -173,8 +191,9 @@ impl Config {
 		});
 
 		Self {
-			caching_timeout: conft.content.caching_timeout.unwrap_or(4),
+			caching_timeout: conft.content.caching_timeout.unwrap_or(12),
 			stream_timeout: conft.server.stream_timeout.unwrap_or(20),
+			websocket_timeout: conft.server.websocket_timeout.unwrap_or(20),
 			hsts: conft.content.hsts.unwrap_or(false),
 			hidden: {
 				let mut tmp = conft.content.hide.to_owned().unwrap_or_else(Vec::new);
@@ -269,6 +288,7 @@ impl Config {
 			tls_addr: conft.server.tls_addr.unwrap_or_else(|| "[::]:443".to_owned()),
 			cert_folder: conft.server.cert_folder.unwrap_or_else(|| "ssl".to_owned()),
 			root_folder: conft.server.root_folder.unwrap_or_else(|| ".".to_owned()),
+			max_streaming_len: conft.server.copy_chunk_size.unwrap_or(65_536),
 		}
 	}
 }
@@ -301,7 +321,9 @@ mod tests {
 	fn test_conf_parsing() {
 		let conf = test_conf();
 		assert_eq!(conf.caching_timeout, 4);
-		assert_eq!(conf.stream_timeout, 20);
+		assert_eq!(conf.stream_timeout, 25);
+		assert_eq!(conf.websocket_timeout, 20);
+
 		assert_eq!(conf.hsts, false);
 
 		assert_eq!(conf.hidden, vec!["r#tar.*", "redir", "src", "ssl"]);
@@ -328,6 +350,7 @@ mod tests {
 		assert_eq!(conf.tls_addr, "[::]:443".to_owned());
 		assert_eq!(conf.cert_folder, "ssl".to_owned());
 		assert_eq!(conf.root_folder, ".".to_owned());
+		assert_eq!(conf.max_streaming_len, 64000);
 	}
 	fn default_conf() -> config::Config {
 		config::Config::load_config(config::DEFAULT_CONFIG.to_owned(), false)
@@ -335,8 +358,9 @@ mod tests {
 	#[test]
 	fn test_conf_defaults() {
 		let conf = default_conf();
-		assert_eq!(conf.caching_timeout, 4);
+		assert_eq!(conf.caching_timeout, 12);
 		assert_eq!(conf.stream_timeout, 20);
+		assert_eq!(conf.websocket_timeout, 20);
 		assert_eq!(conf.hsts, false);
 		assert_eq!(conf.protect, true);
 		assert_eq!(conf.compress_files, true);
@@ -345,6 +369,7 @@ mod tests {
 		assert_eq!(conf.tls_addr, "[::]:443".to_owned());
 		assert_eq!(conf.cert_folder, "ssl".to_owned());
 		assert_eq!(conf.root_folder, ".".to_owned());
+		assert_eq!(conf.max_streaming_len, 65_536);
 	}
 }
 
@@ -354,7 +379,9 @@ pub const TEST_CONFIG: &str = r##"# test.toml - KatWebX configuration used for i
 [server]
 http_addr = "[::]:80"
 tls_addr = "[::]:443"
-stream_timeout = 20
+stream_timeout = 25
+websocket_timeout = 20
+copy_chunk_size = 64000
 log_format = "simple"
 cert_folder = "ssl"
 root_folder = "."
