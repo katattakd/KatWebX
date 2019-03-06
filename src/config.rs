@@ -184,7 +184,11 @@ impl Config {
 				tmp
 			},
 			hiddenx: {
-				parse_regex(conft.content.hide.unwrap_or_else(Vec::new)).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
+				parse_regex(conft.content.hide.unwrap_or_else(Vec::new)).unwrap_or_else(|err| {
+					println!("[Fatal]: Unable to parse configuration! Debugging information will be printed below.");
+					println!("{}", err);
+					process::exit(1);
+				})
 			},
 			lredir: {
 				let mut tmp = Vec::new();
@@ -199,7 +203,11 @@ impl Config {
 				for item in conft.redir.to_owned().unwrap_or_else(Vec::new) {
 					tmp.push(item.location);
 				}
-				parse_regex(tmp).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
+				parse_regex(tmp).unwrap_or_else(|err| {
+					println!("[Fatal]: Unable to parse configuration! Debugging information will be printed below.");
+					println!("{}", err);
+					process::exit(1);
+				})
 			},
 			redirmap: {
 				let mut tmp = HashMap::new();
@@ -222,7 +230,11 @@ impl Config {
 				for item in conft.proxy.to_owned().unwrap_or_else(Vec::new) {
 					tmp.push(item.location);
 				}
-				parse_regex(tmp).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
+				parse_regex(tmp).unwrap_or_else(|err| {
+					println!("[Fatal]: Unable to parse configuration! Debugging information will be printed below.");
+					println!("{}", err);
+					process::exit(1);
+				})
 			},
 			proxymap: {
 				let mut tmp = HashMap::new();
@@ -237,7 +249,11 @@ impl Config {
 				for item in conft.auth.to_owned().unwrap_or_else(Vec::new) {
 					tmp.push(item.location);
 				}
-				parse_regex(tmp).unwrap_or_else(|_| RegexSet::new(&["$x"]).unwrap())
+				parse_regex(tmp).unwrap_or_else(|err| {
+					println!("[Fatal]: Unable to parse configuration! Debugging information will be printed below.");
+					println!("{}", err);
+					process::exit(1);
+				})
 			},
 			authmap: {
 				let mut tmp = HashMap::new();
