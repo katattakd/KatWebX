@@ -16,7 +16,7 @@ extern crate serde_derive;
 extern crate futures;
 extern crate actix;
 extern crate actix_web;
-extern crate rustls;
+extern crate openssl;
 extern crate mime_guess;
 extern crate mime_sniffer;
 extern crate toml;
@@ -32,18 +32,17 @@ mod config;
 use config::Config;
 mod wspx;
 use wspx::WsProxy;
-mod certs;
 use actix::{Addr, System};
-use actix_web::{actix::Actor, server, server::{RustlsAcceptor, ServerFlags}, client, client::ClientConnector, App, Body, Binary, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, HttpMessage, AsyncResponder, Error, dev::{ConnectionInfo, Payload}, ws};
+use actix_web::{actix::Actor, server, client, client::ClientConnector, App, Body, Binary, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, HttpMessage, AsyncResponder, Error, dev::{ConnectionInfo, Payload}, ws};
 use futures::future::{Future, result};
-use std::{env, process, cmp, fs, string::String, fs::File, path::Path, io::Read, time::Duration, sync::Arc, ffi::OsStr};
+use std::{env, process, cmp, fs, string::String, fs::File, path::Path, io::Read, time::Duration};
 use bytes::Bytes;
 use base64::decode;
 use mime_sniffer::MimeTypeSniffer;
 use regex::{Regex, NoExpand};
 use chrono::Local;
 use percent_encoding::{percent_decode};
-use rustls::{ALL_CIPHERSUITES, NoClientAuth, ServerConfig, BulkAlgorithm};
+use openssl::{ssl::{SslAcceptor, SslFiletype, SslMethod, SslOptions, SslRef, SslContext, SslAlert, SniError, NameType}};
 use listenfd::ListenFd;
 
 lazy_static! {
@@ -472,6 +471,42 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
         	.responder()
 }
 
+// Pick the correct certificate to use for a request
+fn servername_callback(ssl: &mut SslRef, _alert: &mut SslAlert) -> Result<(), SniError> {
+	// TODO: Improve this thing's error handling.
+	let path = [&conf.cert_folder, "/", ssl.servername(NameType::HOST_NAME).unwrap_or("default")].concat();
+	let default_path = [&conf.cert_folder, "/default"].concat();
+	let mut ctx = SslContext::builder(SslMethod::tls()).unwrap_or_else(|_| {
+		println!("[Fatal]: Unable to create TLS context builder!");
+		process::exit(1);
+	});
+	ctx.set_private_key_file([&path, ".pem"].concat(), SslFiletype::PEM)
+		.unwrap_or_else(|_|
+			ctx.set_private_key_file([&default_path, ".pem"].concat(), SslFiletype::PEM)
+				.unwrap_or_else(|err| {
+					println!("[Fatal]: Unable to parse default key! Debugging information will be printed below.");
+					println!("{}", err);
+					process::exit(1);
+				}));
+	ctx.set_certificate_chain_file([&path, ".crt"].concat())
+		.unwrap_or_else(|_|
+			ctx.set_certificate_chain_file([&default_path, ".crt"].concat())
+				.unwrap_or_else(|err| {
+					println!("[Fatal]: Unable to parse default certificate! Debugging information will be printed below.");
+					println!("{}", err);
+					process::exit(1);
+				}));
+	let _ = ssl.set_ssl_context(&ctx.build());
+	if let Ok(mut f) = File::open([&path, ".ocsp"].concat()) {
+		let mut ocsp_file = Vec::new();
+		let _ = f.read_to_end(&mut ocsp_file);
+		if !ocsp_file.is_empty() {
+			let _ = ssl.set_ocsp_status(&ocsp_file);
+		}
+	}
+	Ok(())
+}
+
 // Load configuration, SSL certs, then attempt to start the program.
 fn main() {
 	println!("[Info]: Starting KatWebX...");
@@ -484,45 +519,13 @@ fn main() {
 		process::exit(1);
 	});
 
-	let mut tconfig = ServerConfig::new(NoClientAuth::new());
-	tconfig.ciphersuites = ALL_CIPHERSUITES.to_vec().into_iter().filter(|x| x.bulk != BulkAlgorithm::AES_128_GCM).collect();
-
-	let tls_folder = fs::read_dir(conf.cert_folder.to_owned()).unwrap_or_else(|_| {
-		println!("[Fatal]: Unable to open certificate folder!");
+	let mut tconfig = SslAcceptor::mozilla_modern(SslMethod::tls()).unwrap_or_else(|_| {
+		println!("[Fatal]: Unable to set TLS configuration!");
 		process::exit(1);
 	});
+	tconfig.clear_options(SslOptions::NO_TLSV1_3); // Force OpenSSL to use TLS 1.3
 
-	let mut cert_resolver = certs::ResolveCert::new([&conf.cert_folder, "/"].concat());
-	for file in tls_folder {
-		let f;
-		if let Ok(fi) = file {
-			f = fi;
-		} else {
-			continue
-		}
-
-		if f.path().extension() != Some(OsStr::new("crt")) {
-			continue
-		}
-
-		let path = f.path();
-		let pathnoext;
-		if let Some(p) = path.file_stem() {
-			pathnoext = p.to_string_lossy()
-		} else {
-			continue
-		}
-
-		cert_resolver.load(pathnoext.to_string()).unwrap_or_else(|err| {
-			println!("[Warn]: {}", err)
-		});
-	}
-
-	tconfig.cert_resolver = Arc::new(cert_resolver);
-	let acceptor = RustlsAcceptor::with_flags(
-		tconfig,
-		ServerFlags::HTTP1 | ServerFlags::HTTP2,
-	);
+	tconfig.set_servername_callback(servername_callback);
 
 	// Socket request handling
 	if let Ok(Some(l)) = listenfd.take_tcp_listener(0) {
@@ -537,7 +540,11 @@ fn main() {
 				App::new()
 					.default_resource(|r| r.f(index))
 			}).keep_alive(conf.stream_timeout as usize)
-			.listen_with(li, move || acceptor.to_owned()).start();
+			.listen_ssl(li, tconfig)
+			.unwrap_or_else(|_err| {
+				println!("[Fatal]: Unable to start TLS listener!");
+				process::exit(1);
+			}).start();
 		}
 
 		println!("[Info]: Started KatWebX in socket mode.");
@@ -552,7 +559,7 @@ fn main() {
 			.default_resource(|r| r.f(index))
 	})
 		.keep_alive(conf.stream_timeout as usize)
-		.bind_with(&conf.tls_addr, move || acceptor.to_owned())
+		.bind_ssl(&conf.tls_addr, tconfig)
 		.unwrap_or_else(|_err| {
 			println!("{}", ["[Fatal]: Unable to bind to ", &conf.tls_addr, "!"].concat());
 			process::exit(1);

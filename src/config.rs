@@ -1,5 +1,4 @@
 // Config.rs handles configuration parsing.
-// TODO: Clean up the code, to improve readability.
 extern crate serde;
 extern crate serde_derive;
 extern crate toml;
