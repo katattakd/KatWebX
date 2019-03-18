@@ -42,7 +42,7 @@ use mime_sniffer::MimeTypeSniffer;
 use regex::{Regex, NoExpand};
 use chrono::Local;
 use percent_encoding::{percent_decode};
-use openssl::{ssl::{SslAcceptor, SslFiletype, SslMethod, SslOptions, SslRef, SslContext, SslAlert, SniError, NameType}};
+use openssl::{ssl::{SslAcceptor, SslFiletype, SslMethod, SslOptions, SslRef, SslContext, SslAlert, SniError, NameType}, error::ErrorStack};
 use listenfd::ListenFd;
 
 lazy_static! {
@@ -473,8 +473,7 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 
 // Pick the correct certificate to use for a request
 fn servername_callback(ssl: &mut SslRef, _alert: &mut SslAlert) -> Result<(), SniError> {
-	// TODO: Improve this thing's error handling.
-	let path = [&conf.cert_folder, "/", ssl.servername(NameType::HOST_NAME).unwrap_or("default")].concat();
+	let mut path = [&conf.cert_folder, "/", ssl.servername(NameType::HOST_NAME).unwrap_or("default")].concat();
 	let default_path = [&conf.cert_folder, "/default"].concat();
 	let mut ctx = SslContext::builder(SslMethod::tls()).unwrap_or_else(|_| {
 		println!("[Fatal]: Unable to create TLS context builder!");
@@ -489,22 +488,34 @@ fn servername_callback(ssl: &mut SslRef, _alert: &mut SslAlert) -> Result<(), Sn
 					process::exit(1);
 				}));
 	ctx.set_certificate_chain_file([&path, ".crt"].concat())
-		.unwrap_or_else(|_|
+		.unwrap_or_else(|_| {
 			ctx.set_certificate_chain_file([&default_path, ".crt"].concat())
 				.unwrap_or_else(|err| {
 					println!("[Fatal]: Unable to parse default certificate! Debugging information will be printed below.");
 					println!("{}", err);
 					process::exit(1);
-				}));
+				});
+				path = default_path;
+			});
+	ctx.set_status_callback(status_callback).unwrap_or_else(|_| {
+		println!("[Fatal]: Unable to set OCSP callback!");
+		process::exit(1);
+	});
 	let _ = ssl.set_ssl_context(&ctx.build());
 	if let Ok(mut f) = File::open([&path, ".ocsp"].concat()) {
 		let mut ocsp_file = Vec::new();
 		let _ = f.read_to_end(&mut ocsp_file);
-		if !ocsp_file.is_empty() {
-			let _ = ssl.set_ocsp_status(&ocsp_file);
-		}
+		ssl.set_ocsp_status(&ocsp_file).unwrap_or_else(|err| {
+			println!("[Fatal]: Unable to parse OCSP status! Debugging information will be printed below.");
+			println!("{}", err);
+			process::exit(1);
+		});
 	}
 	Ok(())
+}
+
+fn status_callback(ssl: &mut SslRef) -> Result<bool, ErrorStack> {
+	Ok(ssl.ocsp_status().is_some())
 }
 
 // Load configuration, SSL certs, then attempt to start the program.
@@ -524,7 +535,6 @@ fn main() {
 		process::exit(1);
 	});
 	tconfig.clear_options(SslOptions::NO_TLSV1_3); // Force OpenSSL to use TLS 1.3
-
 	tconfig.set_servername_callback(servername_callback);
 
 	// Socket request handling
