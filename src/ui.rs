@@ -2,7 +2,6 @@
 #![allow(clippy::cast_precision_loss)]
 
 // Ui.rs is responsible for creating all server-generated content (error pages, file listings, etc...)
-// TODO: Fix order of file listing.
 extern crate actix_web;
 extern crate htmlescape;
 extern crate number_prefix;
