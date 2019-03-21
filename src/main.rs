@@ -36,7 +36,7 @@ mod certs;
 use actix::{Addr, System};
 use actix_web::{actix::Actor, server, server::{RustlsAcceptor, ServerFlags}, client, client::ClientConnector, App, Body, Binary, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, HttpMessage, AsyncResponder, Error, dev::{ConnectionInfo, Payload}, ws};
 use futures::future::{Future, result};
-use std::{env, process, cmp, fs, string::String, fs::File, path::Path, io::Read, time::Duration, sync::Arc, ffi::OsStr};
+use std::{env, process, cmp, fs, string::String, fs::File, path::Path, io::Read, time::Duration, sync::{Arc, RwLock, RwLockReadGuard}, ffi::OsStr};
 use bytes::Bytes;
 use base64::decode;
 use mime_sniffer::MimeTypeSniffer;
@@ -47,11 +47,20 @@ use rustls::{ALL_CIPHERSUITES, NoClientAuth, ServerConfig, BulkAlgorithm};
 use listenfd::ListenFd;
 
 lazy_static! {
-	static ref conf: Config = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true);
+	static ref confm: RwLock<Config> = RwLock::new(Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true));
 	static ref clientconn: Addr<ClientConnector> = {ClientConnector::default()
-		.conn_lifetime(Duration::from_secs((conf.stream_timeout*4) as u64))
-		.conn_keep_alive(Duration::from_secs((conf.stream_timeout*4) as u64))
+		.conn_lifetime(Duration::from_secs((rc(&confm).stream_timeout*4) as u64))
+		.conn_keep_alive(Duration::from_secs((rc(&confm).stream_timeout*4) as u64))
 		.start()};
+}
+
+// rc converts a RwLock<Config> into a config.
+fn rc(lock: &confm) -> RwLockReadGuard<Config> {
+	lock.read().unwrap_or_else(|_| {
+		println!("[Fatal]: Something seriously went wrong when KatWebX was reloading!");
+		println!("Hot-reloading the config safely isn't perfect. You should never encounter this error, but if you do, please report it on KatWebX's GitHub.");
+		process::exit(1);
+	})
 }
 
 // Generate the correct host and path, from raw data.
@@ -327,6 +336,8 @@ fn get_mime(path: &str) -> String {
 
 // HTTP request handling
 fn hsts(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
+	let conf = rc(&confm);
+
 	if !conf.hsts {
 		return index(req);
 	}
@@ -346,6 +357,8 @@ fn hsts(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 
 // HTTPS request handling.
 fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
+	let conf = rc(&confm);
+
 	let rawpath = &percent_decode(req.path().as_bytes()).decode_utf8_lossy();
 	let conn_info = req.connection_info();
 
@@ -477,8 +490,9 @@ fn main() {
 	println!("[Info]: Starting KatWebX...");
 	let sys = System::new("katwebx");
 	let mut listenfd = ListenFd::from_env();
-	lazy_static::initialize(&conf);
+	lazy_static::initialize(&confm);
 	lazy_static::initialize(&clientconn);
+	let conf = rc(&confm);
 	env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
 		println!("[Fatal]: Unable to open root folder!");
 		process::exit(1);

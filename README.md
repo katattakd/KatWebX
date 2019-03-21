@@ -23,16 +23,19 @@ Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are l
 - Brotli file compression
 - Systemd/systemfd socket listening
 - HSTS support
-- SNI and OCSP reponse stapling
-- High peformance HTTP/2 and TLS 1.3
+- SNI and OCSP response stapling
+- High performance HTTP/2 and TLS 1.3
 - Multiple logging types
 - Material design server-generated pages
 
-## Possible Features
-- On-the-fly config reloading (Currently extremely difficult to implement, requires rewrite of configuration handling)
-- QUIC support (Will be implemented after [actix-web issue #309](https://github.com/actix/actix-web/issues/309) is closed)
-- TLS mutual auth (Likely to be implemented in the near future)
-- FastCGI support (Unlikely to be implemented in the near future, lack of existing client libraries)
+## Possible Features (probably won't be implemented soon, but a possibility in the future)
+- On-the-fly config reloading (Work in progress)
 - Let's Encrypt integration (Difficult but practical to implement, possible in the future)
 - Caching proxy (Currently very difficult to implement, unlikely to be implemented in the near future)
 - Advanced load balancer (Likely to be implemented in the near future)
+
+## Unlikely features (will not be implemented soon or at all)
+- QUIC support (The underlying HTTP library (actix-web) doesn't support it, and [only 1 browser supports it out of the box](https://en.wikipedia.org/wiki/QUIC#Adoption). Until it gets more adoption, I'm not going to put effort into adding it myself.)
+- FastCGI support (There are no existing client libraries for Rust, and there's no real reason to implement it anyways. [HTTP/2 can do everything that FastCGI does](https://ef.gy/fastcgi-is-pointless), and KatWebX has an HTTP/2 capable reverse proxy built-in.)
+- SPDY support ([SPDY is dying](https://caniuse.com/#feat=spdy), as it's being replaced by HTTP/2. KatWebX has full support for HTTP/2.)
+- TLS 1.1 or older ([All recent browsers support TLS 1.2 or higher](https://caniuse.com/#feat=tls1-2), and these older TLS protocols are very insecure.)

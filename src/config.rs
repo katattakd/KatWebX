@@ -10,6 +10,7 @@ use regex::RegexSet;
 // The default configuration for the server to use.
 pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Default Configuration.
 # Note that regex can be enabled for some fields by adding r# to the beginning of the string.
+# This configuration file covers all possible configuration options. For the server and content sections, default values are commented out.
 
 [server] # Server related settings.
 # http_addr and tls_addr specify the address and port KatWebX should bind to.
@@ -68,7 +69,7 @@ log_format = "simple"
 
 # hide specifies a list of folders which can't be used to serve content. This field supports regex.
 # Note that the certificate folder is automatically included in this, and folders starting with "." are always ignored.
-hide = ["src", "r#tar.*"]
+hide = ["src", "target"]
 
 
 #[[proxy]] # HTTP reverse proxy
