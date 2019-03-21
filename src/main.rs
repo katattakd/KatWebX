@@ -26,6 +26,7 @@ extern crate bytes;
 extern crate chrono;
 extern crate percent_encoding;
 extern crate listenfd;
+extern crate signal_hook;
 mod stream;
 mod ui;
 mod config;
@@ -36,7 +37,7 @@ mod certs;
 use actix::{Addr, System};
 use actix_web::{actix::Actor, server, server::{RustlsAcceptor, ServerFlags}, client, client::ClientConnector, App, Body, Binary, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, HttpMessage, AsyncResponder, Error, dev::{ConnectionInfo, Payload}, ws};
 use futures::future::{Future, result};
-use std::{env, process, cmp, fs, string::String, fs::File, path::Path, io::Read, time::Duration, sync::{Arc, RwLock, RwLockReadGuard}, ffi::OsStr};
+use std::{env, process, cmp, fs, string::String, fs::File, path::Path, io::Read, time::Duration, sync::{Arc, RwLock, RwLockReadGuard}, ffi::OsStr, thread};
 use bytes::Bytes;
 use base64::decode;
 use mime_sniffer::MimeTypeSniffer;
@@ -45,6 +46,7 @@ use chrono::Local;
 use percent_encoding::{percent_decode};
 use rustls::{ALL_CIPHERSUITES, NoClientAuth, ServerConfig, BulkAlgorithm};
 use listenfd::ListenFd;
+use signal_hook::{iterator::Signals, SIGHUP};
 
 lazy_static! {
 	static ref confm: RwLock<Config> = RwLock::new(Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true));
@@ -492,7 +494,7 @@ fn main() {
 	let mut listenfd = ListenFd::from_env();
 	lazy_static::initialize(&confm);
 	lazy_static::initialize(&clientconn);
-	let conf = rc(&confm);
+	let conf = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true); // We can't hold the RwLock on the main thread, or we won't be able to reload the config.
 	env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
 		println!("[Fatal]: Unable to open root folder!");
 		process::exit(1);
@@ -538,6 +540,18 @@ fn main() {
 		tconfig,
 		ServerFlags::HTTP1 | ServerFlags::HTTP2,
 	);
+
+	// Configuration reloading
+	let signals = Signals::new(&[SIGHUP]).unwrap();
+	thread::spawn(move || {
+		for _ in signals.forever() {
+			println!("[Info]: Reloading KatWebX's configuration...");
+			let conf = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true);
+			let mut confw = confm.write().unwrap();
+			*confw = conf;
+			println!("[Info]: Reload sucessful!");
+		}
+	});
 
 	// Socket request handling
 	if let Ok(Some(l)) = listenfd.take_tcp_listener(0) {

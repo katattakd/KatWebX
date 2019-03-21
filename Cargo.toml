@@ -33,6 +33,7 @@ mime_guess = "=2.0.0-alpha.6"
 mime-sniffer = "=0.1.2"
 number_prefix = "=0.2.8"
 percent-encoding = "=1.0.1"
+signal-hook = "=0.1.8"
 webpki = "=0.18.1" # Currently can't be upgraded to latest version
 
 # The libraires below should be updated often (at least once a month), with new versions being tested before use.

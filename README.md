@@ -2,7 +2,7 @@
 An extremely fast static web-server and reverse proxy for the modern web. More info is available on [KatWebX.kittyhacker101.tk](https://katwebx.kittyhacker101.tk/).
 
 ## Important Info
-KatWebX is stil a work in progress, and you may encounter issues. **KatWebX is not well tested, production use is not recommended!**  If you need something which will is well tested and can be used in production, check out [KatWeb](https://github.com/kittyhacker101/KatWeb) instead.
+KatWebX is still a work in progress, and you may encounter issues. **KatWebX is not well tested, production use is not recommended!**  If you need something which will is well tested and can be used in production, check out [KatWeb](https://github.com/kittyhacker101/KatWeb) instead.
 
 Interested in the project? You can help fund KatWebX's development by donating to the Bitcoin address `1KyggZGHF4BfHoHEXxoGzDmLmcGLaHN2x2`.
 
@@ -22,14 +22,14 @@ Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are l
 - Fast file serving
 - Brotli file compression
 - Systemd/systemfd socket listening
+- On-the-fly config reloading
 - HSTS support
 - SNI and OCSP response stapling
 - High performance HTTP/2 and TLS 1.3
-- Multiple logging types
+- Multiple logging formats
 - Material design server-generated pages
 
 ## Possible Features (probably won't be implemented soon, but a possibility in the future)
-- On-the-fly config reloading (Work in progress)
 - Let's Encrypt integration (Difficult but practical to implement, possible in the future)
 - Caching proxy (Currently very difficult to implement, unlikely to be implemented in the near future)
 - Advanced load balancer (Likely to be implemented in the near future)
