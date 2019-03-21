@@ -547,6 +547,10 @@ fn main() {
 		for _ in signals.forever() {
 			println!("[Info]: Reloading KatWebX's configuration...");
 			let conf = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true);
+			env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
+				println!("[Fatal]: Unable to open root folder!");
+				process::exit(1);
+			});
 			let mut confw = confm.write().unwrap();
 			*confw = conf;
 			println!("[Info]: Reload sucessful!");

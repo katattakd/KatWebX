@@ -1,5 +1,9 @@
 # default.toml - KatWebX's Default Configuration.
 # Note that regex can be enabled for some fields by adding r# to the beginning of the string.
+# This configuration file covers all possible configuration options. For the server and content sections, default values are commented out.
+# KatWebX's configuration tries it's best to be both backwards and forwards compatible, and usually follows semantic versioning (sometimes functionality can be added in a patch version).
+# On Unix systems, KatWebX's configuration can be reloaded with a SIGHUP signal.
+# The configuration values server.http_addr, server.tls_addr, server.stream_timeout, server.prefer_chacha_poly, server.cert_folder, and the TLS keys/certs/OCSP responses can't be changed without a restart of the server.
 
 [server] # Server related settings.
 # http_addr and tls_addr specify the address and port KatWebX should bind to.
@@ -22,9 +26,13 @@
 # The default value should be good enough for 99% of use cases, don't adjust this unless you know what you are doing.
 #copy_chunk_size = 65536
 
+# prefer_chacha_poly makes the server prefer using the CHACHA20_POLY1305_SHA256 ciphersuite, instead of using the ciphersuites that the client prefers (usually AES).
+# On CPUs which don't support AES-NI (some very old x86 and oldish ARM CPUs), this can give a ~7x speedup. This should be left disabled on CPUs supporting AES-NI, as it can cut peformance in half.
+#prefer_chacha_poly = false
+
 # log_format controls the format used for logging requests.
 # Supported values are combinedvhost, combined, commonvhost, common, simpleplus, simple, minimal, and none.
-# Note that logging can have a peformance impact on heavily loaded servers. If your server is under extreme load (50+ requests/second), setting the logging format to "minimal" or "none" can significantly increase peformance.
+# Note that logging can have a peformance impact on heavily loaded servers. If your server is under extreme load (100+ requests/second), setting the logging format to "minimal" or "none" can significantly increase peformance.
 log_format = "simple"
 
 # cert_folder controls the folder used for storing TLS certificates, encryption keys, and OCSP data.
@@ -54,7 +62,7 @@ log_format = "simple"
 
 # hide specifies a list of folders which can't be used to serve content. This field supports regex.
 # Note that the certificate folder is automatically included in this, and folders starting with "." are always ignored.
-hide = ["src", "r#tar.*"]
+hide = ["src", "target"]
 
 
 #[[proxy]] # HTTP reverse proxy
