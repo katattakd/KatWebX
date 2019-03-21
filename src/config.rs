@@ -32,9 +32,13 @@ pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Default Configurati
 # The default value should be good enough for 99% of use cases, don't adjust this unless you know what you are doing.
 #copy_chunk_size = 65536
 
+# prefer_chacha_poly makes the server prefer using the CHACHA20_POLY1305_SHA256 ciphersuite, instead of using the ciphersuites that the client prefers (usually AES).
+# On CPUs which don't support AES-NI (some very old x86 and oldish ARM CPUs), this can give a ~7x speedup. This should be left disabled on CPUs supporting AES-NI, as it can cut peformance in half.
+#prefer_chacha_poly = false
+
 # log_format controls the format used for logging requests.
 # Supported values are combinedvhost, combined, commonvhost, common, simpleplus, simple, minimal, and none.
-# Note that logging can have a peformance impact on heavily loaded servers. If your server is under extreme load (50+ requests/second), setting the logging format to "minimal" or "none" can significantly increase peformance.
+# Note that logging can have a peformance impact on heavily loaded servers. If your server is under extreme load (100+ requests/second), setting the logging format to "minimal" or "none" can significantly increase peformance.
 log_format = "simple"
 
 # cert_folder controls the folder used for storing TLS certificates, encryption keys, and OCSP data.
@@ -119,6 +123,7 @@ pub struct Config {
 	pub authmap: HashMap<String, String>,
 	pub protect: bool,
 	pub compress_files: bool,
+	pub chacha: bool,
 	pub log_format: String,
 	pub http_addr: String,
 	pub tls_addr: String,
@@ -145,7 +150,8 @@ struct ConfStructServer {
 	log_format: Option<String>,
 	cert_folder: Option<String>,
 	root_folder: Option<String>,
-	copy_chunk_size: Option<usize>
+	copy_chunk_size: Option<usize>,
+	prefer_chacha_poly: Option<bool>
 }
 
 #[derive(Clone, Deserialize)]
@@ -289,6 +295,7 @@ impl Config {
 			cert_folder: conft.server.cert_folder.unwrap_or_else(|| "ssl".to_owned()),
 			root_folder: conft.server.root_folder.unwrap_or_else(|| ".".to_owned()),
 			max_streaming_len: conft.server.copy_chunk_size.unwrap_or(65_536),
+			chacha: conft.server.prefer_chacha_poly.unwrap_or(false),
 		}
 	}
 }
@@ -351,6 +358,7 @@ mod tests {
 		assert_eq!(conf.cert_folder, "ssl".to_owned());
 		assert_eq!(conf.root_folder, ".".to_owned());
 		assert_eq!(conf.max_streaming_len, 64000);
+		assert_eq!(conf.chacha, true);
 	}
 	fn default_conf() -> config::Config {
 		config::Config::load_config(config::DEFAULT_CONFIG.to_owned(), false)
@@ -370,6 +378,7 @@ mod tests {
 		assert_eq!(conf.cert_folder, "ssl".to_owned());
 		assert_eq!(conf.root_folder, ".".to_owned());
 		assert_eq!(conf.max_streaming_len, 65_536);
+		assert_eq!(conf.chacha, false);
 	}
 }
 
@@ -382,6 +391,7 @@ tls_addr = "[::]:443"
 stream_timeout = 25
 websocket_timeout = 20
 copy_chunk_size = 64000
+prefer_chacha_poly = true
 log_format = "simple"
 cert_folder = "ssl"
 root_folder = "."

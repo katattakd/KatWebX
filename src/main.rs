@@ -485,6 +485,7 @@ fn main() {
 	});
 
 	let mut tconfig = ServerConfig::new(NoClientAuth::new());
+	tconfig.ignore_client_order = conf.chacha;
 	tconfig.ciphersuites = ALL_CIPHERSUITES.to_vec().into_iter().filter(|x| x.bulk != BulkAlgorithm::AES_128_GCM).collect();
 
 	let tls_folder = fs::read_dir(conf.cert_folder.to_owned()).unwrap_or_else(|_| {
