@@ -12,9 +12,6 @@ use regex::RegexSet;
 pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Default Configuration.
 # Note that regex can be enabled for some fields by adding r# to the beginning of the string.
 # This configuration file covers all possible configuration options. For the server and content sections, default values are commented out.
-# KatWebX's configuration tries it's best to be both backwards and forwards compatible, and usually follows semantic versioning (sometimes functionality can be added in a patch version).
-# On Unix systems, KatWebX's configuration can be reloaded with a SIGHUP signal.
-# The configuration values server.http_addr, server.tls_addr, server.stream_timeout, server.prefer_chacha_poly, server.cert_folder, and the TLS keys/certs/OCSP responses can't be changed without a restart of the server.
 
 [server] # Server related settings.
 # http_addr and tls_addr specify the address and port KatWebX should bind to.
