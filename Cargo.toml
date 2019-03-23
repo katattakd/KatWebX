@@ -44,12 +44,12 @@ rustls = "0.14.0" # Currently can't be upgraded to latest version
 serde = "1.0.89"
 serde_derive = "1.0.89"
 
+# The libraires below should always use the lastest version whenever possible.
+actix-web = { version = ">=0.7.18", default-features = false, features = ["flate2-rust", "uds", "rust-tls"] }
+
 [target.'cfg(unix)'.dependencies]
 listenfd = "=0.3.3"
 signal-hook = "=0.1.8"
-
-# The libraires below should always use the lastest version whenever possible.
-actix-web = { version = ">=0.7.18", default-features = false, features = ["flate2-rust", "uds", "rust-tls"] }
 
 [profile.dev]
 opt-level = 1
