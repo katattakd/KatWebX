@@ -4,6 +4,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate toml;
 extern crate regex;
+extern crate exitcode;
 use std::{collections::HashMap, fs, process};
 use regex::RegexSet;
 
@@ -197,7 +198,7 @@ impl Config {
 		let conft: ConfStruct = toml::from_str(&datar).unwrap_or_else(|err| {
 			println!("[Fatal]: Unable to parse configuration! Debugging information will be printed below.");
 			println!("{}", err);
-			process::exit(1);
+			process::exit(exitcode::CONFIG);
 		});
 
 		Self {
@@ -216,7 +217,7 @@ impl Config {
 				parse_regex(conft.content.hide.unwrap_or_else(Vec::new)).unwrap_or_else(|err| {
 					println!("[Fatal]: Unable to parse configuration! Debugging information will be printed below.");
 					println!("{}", err);
-					process::exit(1);
+					process::exit(exitcode::CONFIG);
 				})
 			},
 			lredir: {
@@ -235,7 +236,7 @@ impl Config {
 				parse_regex(tmp).unwrap_or_else(|err| {
 					println!("[Fatal]: Unable to parse configuration! Debugging information will be printed below.");
 					println!("{}", err);
-					process::exit(1);
+					process::exit(exitcode::CONFIG);
 				})
 			},
 			redirmap: {
@@ -262,7 +263,7 @@ impl Config {
 				parse_regex(tmp).unwrap_or_else(|err| {
 					println!("[Fatal]: Unable to parse configuration! Debugging information will be printed below.");
 					println!("{}", err);
-					process::exit(1);
+					process::exit(exitcode::CONFIG);
 				})
 			},
 			proxymap: {
@@ -281,7 +282,7 @@ impl Config {
 				parse_regex(tmp).unwrap_or_else(|err| {
 					println!("[Fatal]: Unable to parse configuration! Debugging information will be printed below.");
 					println!("{}", err);
-					process::exit(1);
+					process::exit(exitcode::CONFIG);
 				})
 			},
 			authmap: {

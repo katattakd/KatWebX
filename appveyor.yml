@@ -3,9 +3,8 @@ environment:
     RUST_VERSION: stable
     CRATE_NAME: katwebx
   matrix:
-    # TODO: Figure out why listenfd breaks these targets.
-    # - TARGET: i686-pc-windows-gnu
-    # - TARGET: x86_64-pc-windows-gnu
+    - TARGET: i686-pc-windows-gnu
+    - TARGET: x86_64-pc-windows-gnu
     - TARGET: i686-pc-windows-msvc
     - TARGET: x86_64-pc-windows-msvc
 install:

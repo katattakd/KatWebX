@@ -13,10 +13,14 @@
 extern crate lazy_static;
 #[macro_use]
 extern crate serde_derive;
+#[cfg(unix)]
+extern crate listenfd;
+#[cfg(unix)]
+extern crate signal_hook;
+extern crate rustls;
 extern crate futures;
 extern crate actix;
 extern crate actix_web;
-extern crate rustls;
 extern crate mime_guess;
 extern crate mime_sniffer;
 extern crate toml;
@@ -25,8 +29,7 @@ extern crate base64;
 extern crate bytes;
 extern crate chrono;
 extern crate percent_encoding;
-extern crate listenfd;
-extern crate signal_hook;
+extern crate exitcode;
 mod stream;
 mod ui;
 mod config;
@@ -45,7 +48,9 @@ use regex::{Regex, NoExpand};
 use chrono::Local;
 use percent_encoding::{percent_decode};
 use rustls::{ALL_CIPHERSUITES, NoClientAuth, ServerConfig, BulkAlgorithm};
+#[cfg(unix)]
 use listenfd::ListenFd;
+#[cfg(unix)]
 use signal_hook::{iterator::Signals, SIGHUP};
 
 lazy_static! {
@@ -61,7 +66,7 @@ fn rc(lock: &confm) -> RwLockReadGuard<Config> {
 	lock.read().unwrap_or_else(|_| {
 		println!("[Fatal]: Something seriously went wrong when KatWebX was reloading!");
 		println!("Hot-reloading the config safely isn't perfect. You should never encounter this error, but if you do, please report it on KatWebX's GitHub.");
-		process::exit(1);
+		process::exit(exitcode::SOFTWARE);
 	})
 }
 
@@ -491,13 +496,12 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 fn main() {
 	println!("[Info]: Starting KatWebX...");
 	let sys = System::new("katwebx");
-	let mut listenfd = ListenFd::from_env();
 	lazy_static::initialize(&confm);
 	lazy_static::initialize(&clientconn);
 	let conf = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true); // We can't hold the RwLock on the main thread, or we won't be able to reload the config.
 	env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
 		println!("[Fatal]: Unable to open root folder!");
-		process::exit(1);
+		process::exit(exitcode::NOINPUT);
 	});
 
 	let mut tconfig = ServerConfig::new(NoClientAuth::new());
@@ -506,7 +510,7 @@ fn main() {
 
 	let tls_folder = fs::read_dir(conf.cert_folder.to_owned()).unwrap_or_else(|_| {
 		println!("[Fatal]: Unable to open certificate folder!");
-		process::exit(1);
+		process::exit(exitcode::NOINPUT);
 	});
 
 	let mut cert_resolver = certs::ResolveCert::new([&conf.cert_folder, "/"].concat());
@@ -541,42 +545,49 @@ fn main() {
 		ServerFlags::HTTP1 | ServerFlags::HTTP2,
 	);
 
-	// Configuration reloading
-	let signals = Signals::new(&[SIGHUP]).unwrap();
-	thread::spawn(move || {
-		for _ in signals.forever() {
-			println!("[Info]: Reloading KatWebX's configuration...");
-			let conf = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true);
-			env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
-				println!("[Fatal]: Unable to open root folder!");
-				process::exit(1);
-			});
-			let mut confw = confm.write().unwrap();
-			*confw = conf;
-			println!("[Info]: Reload sucessful!");
-		}
-	});
+	#[cfg(unix)] {
+		// Configuration reloading
+		let signals = Signals::new(&[SIGHUP]).unwrap();
+		thread::spawn(move || {
+			for _ in signals.forever() {
+				println!("[Info]: Reloading KatWebX's configuration...");
+				let conf = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true);
+				env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
+					println!("[Fatal]: Unable to open root folder!");
+					process::exit(exitcode::NOINPUT);
+				});
+				let mut confw = confm.write().unwrap_or_else(|_| {
+					println!("[Fatal]: Something seriously went wrong when KatWebX was reloading!");
+					println!("Hot-reloading the config safely isn't perfect. You should never encounter this error, but if you do, please report it on KatWebX's GitHub.");
+					process::exit(exitcode::SOFTWARE);
+				});
+				*confw = conf;
+				println!("[Info]: Reload sucessful!");
+			}
+		});
 
-	// Socket request handling
-	if let Ok(Some(l)) = listenfd.take_tcp_listener(0) {
-		server::new(|| {
-			App::new()
-				.default_resource(|r| r.f(hsts))
-		}).keep_alive(conf.stream_timeout as usize)
-		.listen(l).start();
-
-		if let Ok(Some(li)) = listenfd.take_tcp_listener(1) {
+		// Socket request handling
+		let mut listenfd = ListenFd::from_env();
+		if let Ok(Some(l)) = listenfd.take_tcp_listener(0) {
 			server::new(|| {
 				App::new()
-					.default_resource(|r| r.f(index))
+					.default_resource(|r| r.f(hsts))
 			}).keep_alive(conf.stream_timeout as usize)
-			.listen_with(li, move || acceptor.to_owned()).start();
-		}
+			.listen(l).start();
 
-		println!("[Info]: Started KatWebX in socket mode.");
-		let _ = sys.run();
-		println!("\n[Info]: Stopping KatWebX...");
-		return
+			if let Ok(Some(li)) = listenfd.take_tcp_listener(1) {
+				server::new(|| {
+					App::new()
+						.default_resource(|r| r.f(index))
+				}).keep_alive(conf.stream_timeout as usize)
+				.listen_with(li, move || acceptor.to_owned()).start();
+			}
+
+			println!("[Info]: Started KatWebX in socket mode.");
+			let _ = sys.run();
+			println!("\n[Info]: Stopping KatWebX...");
+			return
+		}
 	}
 
 	// TCP request handling
@@ -588,7 +599,7 @@ fn main() {
 		.bind_with(&conf.tls_addr, move || acceptor.to_owned())
 		.unwrap_or_else(|_err| {
 			println!("{}", ["[Fatal]: Unable to bind to ", &conf.tls_addr, "!"].concat());
-			process::exit(1);
+			process::exit(exitcode::NOPERM);
 		})
         .start();
 
@@ -600,7 +611,7 @@ fn main() {
 		.bind(&conf.http_addr)
 		.unwrap_or_else(|_err| {
 			println!("{}", ["[Fatal]: Unable to bind to ", &conf.http_addr, "!"].concat());
-			process::exit(1);
+			process::exit(exitcode::NOPERM);
 		})
 	    .start();
 
