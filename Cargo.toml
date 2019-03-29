@@ -45,7 +45,7 @@ serde = "1.0.89"
 serde_derive = "1.0.89"
 
 # The libraires below should always use the lastest version whenever possible.
-actix-web = { version = ">=0.7.18", default-features = false, features = ["flate2-rust", "uds", "rust-tls"] }
+actix-web = { version = ">=0.7.19", default-features = false, features = ["flate2-rust", "uds", "rust-tls"] }
 
 [target.'cfg(unix)'.dependencies]
 listenfd = "=0.3.3"
