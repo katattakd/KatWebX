@@ -6,8 +6,7 @@
 extern crate actix_web;
 extern crate htmlescape;
 extern crate number_prefix;
-use actix_web::{HttpResponse, AsyncResponder, Error, http::{header, ContentEncoding, StatusCode}};
-use futures::future::{Future, result};
+use actix_web::{HttpResponse, http::{header, ContentEncoding, StatusCode}, middleware::BodyEncoding};
 use std::{fs, borrow::Borrow};
 use self::htmlescape::{encode_minimal, encode_attribute};
 use self::number_prefix::{decimal_prefix, Standalone, Prefixed, PrefixNames};
@@ -22,7 +21,7 @@ const FILESVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2
 
 const FOLDERSVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="right: 8px"><path d="M20 6h-8l-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2zm0 12H4V8h16v10z"/></svg>"##;
 
-pub fn dir_listing(path: &str, trim: &str) -> Box<Future<Item=HttpResponse, Error=Error>> {
+pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 	let f;
 
 	match fs::read_dir(path) {
@@ -68,25 +67,22 @@ pub fn dir_listing(path: &str, trim: &str) -> Box<Future<Item=HttpResponse, Erro
 
 	html = [html, "</table><span class=btmright>Powered by KatWebX</span>".to_owned()].concat();
 
-	result(Ok(
-		HttpResponse::Ok()
-			.content_encoding(ContentEncoding::Auto)
-			.header(header::SERVER, "KatWebX")
-			.content_type("text/html; charset=utf-8")
-			.body(html)))
-			.responder()
+
+	HttpResponse::Ok()
+		.encoding(ContentEncoding::Auto)
+		.header(header::SERVER, "KatWebX")
+		.content_type("text/html; charset=utf-8")
+		.body(html)
 }
 
-pub fn http_error(status: StatusCode, header: &str, body: &str) -> Box<Future<Item=HttpResponse, Error=Error>> {
-	result(Ok(
-		HttpResponse::Ok()
-			.status(status)
-			.content_encoding(ContentEncoding::Auto)
-			.if_true(status == StatusCode::UNAUTHORIZED, |builder| {
-				builder.header(header::WWW_AUTHENTICATE, "Basic realm=\"Please provide valid credentials to access this resource.\"");
-			})
-			.header(header::SERVER, "KatWebX")
-			.content_type("text/html; charset=utf-8")
-			.body([HEAD, "<title>", header, "</title><h1 class=err>", ERRSVG, &encode_minimal(header), "</h1><p>", &encode_minimal(body), "</p><span class=bottom>Powered by KatWebX</span>"].concat())))
-			.responder()
+pub fn http_error(status: StatusCode, header: &str, body: &str) -> HttpResponse {
+	HttpResponse::Ok()
+		.status(status)
+		.encoding(ContentEncoding::Auto)
+		.if_true(status == StatusCode::UNAUTHORIZED, |builder| {
+			builder.header(header::WWW_AUTHENTICATE, "Basic realm=\"Please provide valid credentials to access this resource.\"");
+		})
+		.header(header::SERVER, "KatWebX")
+		.content_type("text/html; charset=utf-8")
+		.body([HEAD, "<title>", header, "</title><h1 class=err>", ERRSVG, &encode_minimal(header), "</h1><p>", &encode_minimal(body), "</p><span class=bottom>Powered by KatWebX</span>"].concat())
 }

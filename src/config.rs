@@ -131,7 +131,7 @@ pub struct Config {
 	pub tls_addr: String,
 	pub cert_folder: String,
 	pub root_folder: String,
-	pub max_streaming_len: usize,
+	pub max_streaming_len: u64,
 }
 
 #[derive(Clone, Deserialize)]
@@ -152,7 +152,7 @@ struct ConfStructServer {
 	log_format: Option<String>,
 	cert_folder: Option<String>,
 	root_folder: Option<String>,
-	copy_chunk_size: Option<usize>,
+	copy_chunk_size: Option<u64>,
 	prefer_chacha_poly: Option<bool>
 }
 

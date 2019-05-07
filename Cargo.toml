@@ -23,29 +23,30 @@ name = "katwebx"
 base64 = "=0.10.1"
 chrono = "=0.4.6"
 exitcode = "=1.1.2"
-futures = "=0.1.25"
+futures = "=0.1.26"
 futures-cpupool = "=0.1.8" # Currently can't be upgraded to latest version
 htmlescape = "=0.3.1"
 toml = "=0.4.10"
 lazy_static = "=1.3.0"
 mime = "=0.3.13"
 mime_guess = "=2.0.0-alpha.6"
-mime-sniffer = "=0.1.2"
 number_prefix = "=0.2.8"
 percent-encoding = "=1.0.1"
-webpki = "=0.18.1" # Currently can't be upgraded to latest version
+webpki = "=0.19.1" # Currently can't be upgraded to latest version
 
 # The libraires below should be updated often (at least once a month), with new versions being tested before use.
-actix = "0.7.9" # Currently can't be upgraded to latest version
+actix = "0.8.1" # Currently can't be upgraded to latest version
 brotli = "3.3.0"
 bytes = "0.4.12"
 regex = "1.1.2"
-rustls = "0.14.0" # Currently can't be upgraded to latest version
+rustls = "0.15.2" # Currently can't be upgraded to latest version
 serde = "1.0.89"
 serde_derive = "1.0.89"
 
 # The libraires below should always use the lastest version whenever possible.
-actix-web = { version = ">=0.7.19", default-features = false, features = ["flate2-rust", "rust-tls"] }
+actix-web = { version = ">=1.0.0-alpha.6", default-features = false, features = ["client", "ssl", "flate2-rust", "rust-tls"] }
+actix-http = { version = ">=0.1.0-alpha.5" }
+actix-server = { version = ">=0.4.2", default-features = false, features = ["rust-tls"] }
 
 [target.'cfg(unix)'.dependencies]
 listenfd = "=0.3.3"

@@ -5,9 +5,12 @@
 // It's not possible to fix this.
 #![allow(clippy::multiple_crate_versions)]
 #![allow(clippy::cargo_common_metadata)]
+// It's currently not possible to fix this.
+#![allow(clippy::needless_pass_by_value)]
 // This is currently a non-issue, and can be ignored.
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::borrow_interior_mutable_const)]
+#![allow(non_upper_case_globals)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -21,8 +24,9 @@ extern crate rustls;
 extern crate futures;
 extern crate actix;
 extern crate actix_web;
+extern crate actix_http;
+extern crate actix_server;
 extern crate mime_guess;
-extern crate mime_sniffer;
 extern crate toml;
 extern crate regex;
 extern crate base64;
@@ -34,16 +38,18 @@ mod stream;
 mod ui;
 mod config;
 use config::Config;
-mod wspx;
-use wspx::WsProxy;
+//mod wspx;
+//use wspx::WsProxy;
 mod certs;
-use actix::{Addr, System};
-use actix_web::{actix::Actor, server, server::{RustlsAcceptor, ServerFlags}, client, client::ClientConnector, App, Body, Binary, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, HttpMessage, AsyncResponder, Error, dev::{ConnectionInfo, Payload}, ws};
-use futures::future::{Future, result};
-use std::{env, process, cmp, fs, string::String, fs::File, path::Path, io::Read, time::Duration, sync::{Arc, RwLock, RwLockReadGuard}, ffi::OsStr, thread};
+//mod wspx;
+//use wspx::WsProxy;
+use actix::System;
+use futures::Future;
+use actix_http::body::BodyStream;
+use actix_web::{web, web::Payload, Either, HttpServer, client::ClientBuilder, App, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, Error, middleware::BodyEncoding, dev::{Body, ConnectionInfo}, /*ws*/};
+use std::{env, process, fs, string::String, fs::File, path::Path, time::Duration, sync::{Arc, RwLock, RwLockReadGuard}, ffi::OsStr, thread};
 use bytes::Bytes;
 use base64::decode;
-use mime_sniffer::MimeTypeSniffer;
 use regex::{Regex, NoExpand};
 use chrono::Local;
 use percent_encoding::{percent_decode};
@@ -55,10 +61,6 @@ use signal_hook::{iterator::Signals, SIGHUP};
 
 lazy_static! {
 	static ref confm: RwLock<Config> = RwLock::new(Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true));
-	static ref clientconn: Addr<ClientConnector> = {ClientConnector::default()
-		.conn_lifetime(Duration::from_secs((rc(&confm).stream_timeout*4) as u64))
-		.conn_keep_alive(Duration::from_secs((rc(&confm).stream_timeout*4) as u64))
-		.start()};
 }
 
 // rc converts a RwLock<Config> into a config.
@@ -134,57 +136,44 @@ fn handle_path(path: &str, host: &str, auth: &str, c: &Config) -> (String, Strin
 
 // Reverse proxy a request, passing through any compression.
 // Hop-by-hop headers are removed, to allow connection reuse.
-fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload, client_ip: &str) -> Box<Future<Item=HttpResponse, Error=Error>> {
-	let re = client::ClientRequest::build()
-		.with_connector(clientconn.to_owned())
-		.uri(path).method(method).disable_decompress()
-		.if_true(true, |req| {
-			for (key, value) in headers.iter() {
-				match key.as_str() {
-					"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "te" | "trailer" | "transfer-encoding" | "upgrade" => (),
-					"x-forwarded-for" => {
-						req.set_header("X-Forwarded-For", [value.to_str().unwrap_or("127.0.0.1"), ", ", client_ip].concat());
-						continue
-					},
-					_ => {
-						//println!("{:?} - {:?}", key, value);
-						req.header(key.to_owned(), value.to_owned());
-						continue
-					},
-				};
-			}
-		})
+fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload, client_ip: &str, c: &Config) -> Box<Future<Item=HttpResponse, Error=Error>> {
+	let mut req = ClientBuilder::new().timeout(Duration::from_secs(c.stream_timeout as u64))
+		.max_redirects(5).finish().request(method, path)//.force_close()
+		.no_decompress()
 		.set_header_if_none("X-Forwarded-For", client_ip)
 		.set_header_if_none(header::ACCEPT_ENCODING, "none")
-		.set_header_if_none(header::USER_AGENT, "KatWebX-Proxy")
-		.streaming(body);
+		.set_header_if_none(header::USER_AGENT, "KatWebX-Proxy");
 
-	let req;
-	match re {
-		Ok(r) => req = r,
-		Err(_) => return ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server."),
+	for (key, value) in headers.iter() {
+		match key.as_str() {
+			"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "te" | "trailer" | "transfer-encoding" | "upgrade" => (),
+			"x-forwarded-for" => {
+				req = req.set_header("X-Forwarded-For", [value.to_str().unwrap_or("127.0.0.1"), ", ", client_ip].concat());
+				continue
+			},
+			_ => {
+				req = req.header(key.to_owned(), value.to_owned());
+				continue
+			},
+		};
 	}
 
-	req.send().and_then(|resp| {
-			Ok(HttpResponse::Ok()
+	Box::new(req.send_stream(body).map_err(Error::from).and_then(|resp| {
+			HttpResponse::Ok()
 				.status(resp.status())
 				.if_true(true, |req| {
 					for (key, value) in resp.headers().iter() {
 						match key.as_str() {
 							"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "te" | "trailer" | "transfer-encoding" | "upgrade" => (),
-							"content-encoding" => {req.header(key.to_owned(), value.to_owned()); req.content_encoding(ContentEncoding::Identity);},
+							"content-encoding" => {req.header(key.to_owned(), value.to_owned()); req.encoding(ContentEncoding::Identity);},
 							_ => {req.header(key.to_owned(), value.to_owned());},
 						}
 					}
-
-					if let Ok(c) = resp.cookies() {{for ck in &c {
-						req.cookie(ck.to_owned());
-					}}}
 				})
-				.streaming(resp.payload()))
-		}).or_else(|_| {
+				.body(Body::from_message(BodyStream::new(resp)))
+		}))/*.wait().unwrap_or_else(|_| {
 			ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server.")
-		}).responder()
+		})*/
 }
 
 // Trim the port from an IPv4 address, IPv6 address, or domain:port.
@@ -247,21 +236,19 @@ fn open_meta(path: &str) -> Result<(fs::File, fs::Metadata), Error> {
 }
 
 // Do a HTTP permanent redirect.
-fn redir(path: &str) -> Box<Future<Item=HttpResponse, Error=Error>> {
-	result(Ok(
-		HttpResponse::Ok()
-			.status(StatusCode::PERMANENT_REDIRECT)
-			.content_encoding(ContentEncoding::Auto)
-			.header(header::LOCATION, path)
-			.header(header::SERVER, "KatWebX")
-			.content_type("text/html; charset=utf-8")
-			.body(["<a href='", path, "'>If this redirect does not work, click here</a>"].concat())))
-			.responder()
+fn redir(path: &str) -> HttpResponse {
+	HttpResponse::Ok()
+		.status(StatusCode::PERMANENT_REDIRECT)
+		.encoding(ContentEncoding::Auto)
+		.header(header::LOCATION, path)
+		.header(header::SERVER, "KatWebX")
+		.content_type("text/html; charset=utf-8")
+		.body(["<a href='", path, "'>If this redirect does not work, click here</a>"].concat())
 }
 
 // Logs a HTTP request to the console.
 // Note: For security reasons, HTTP auth data is not included in logs.
-fn log_data(format_type: &str, status: u16, head: &str, req: &HttpRequest, conn: &ConnectionInfo, length: Option<usize>) {
+fn log_data(format_type: &str, status: u16, head: &str, req: &HttpRequest, conn: &ConnectionInfo, length: Option<u64>) {
 	if format_type == "" || format_type == "none" {
 		return
 	}
@@ -310,43 +297,27 @@ fn log_data(format_type: &str, status: u16, head: &str, req: &HttpRequest, conn:
 	}
 }
 
-// Return a MIME type based on file extension.
-// If the file extension is not known, attempt to guess the mime type.
+// Return a MIME type based on file extension. Assume that all text files are UTF-8, and don't try to guess the MIME type of unknown file extensions.
 fn get_mime(path: &str) -> String {
-	let mut mime = mime_guess::guess_mime_type(path).to_string();
-	if mime == "application/octet-stream" {
-		let (mut f, finfo);
-		match open_meta(path) {
-			Ok((fi, m)) => {f = fi; finfo = m},
-			Err(_) => {
-				return mime
-			}
+	if let Some(mime) = mime_guess::guess_mime_type_opt(path) {
+		let mime = mime.to_string();
+
+		if mime.starts_with("text/") && !mime.contains("charset") {
+			return [&mime, "; charset=utf-8"].concat();
 		}
 
-		let mut sniffer_data = vec![0; cmp::min(512, finfo.len()) as usize];
-		f.read_exact(&mut sniffer_data).unwrap_or(());
-
-		let mreq = mime_sniffer::HttpRequest {
-			content: &sniffer_data,
-			url: &["http://localhost", path].concat(),
-			type_hint: "",
-		};
-
-		mime = mreq.sniff_mime_type().unwrap_or("").to_owned();
+		mime
+	} else {
+		"unknown/unknown".to_owned()
 	}
-	if mime.starts_with("text/") && !mime.contains("charset") {
-		return [&mime, "; charset=utf-8"].concat();
-	}
-
-	mime
 }
 
 // HTTP request handling
-fn hsts(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
+fn hsts(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Item=HttpResponse, Error=Error>>> {
 	let conf = rc(&confm);
 
 	if !conf.hsts {
-		return index(req);
+		return index(body, req);
 	}
 
 	let conn_info = req.connection_info();
@@ -358,12 +329,12 @@ fn hsts(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 		port = ""
 	}
 
-	log_data(&conf.log_format, 301, "WebHSTS", req, &conn_info, None);
-	redir(&["https://", host, port, req.path()].concat())
+	log_data(&conf.log_format, 301, "WebHSTS", &req, &conn_info, None);
+	Either::A(redir(&["https://", host, port, req.path()].concat()))
 }
 
 // HTTPS request handling.
-fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
+fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Item=HttpResponse, Error=Error>>> {
 	let conf = rc(&confm);
 
 	let rawpath = &percent_decode(req.path().as_bytes()).decode_utf8_lossy();
@@ -374,11 +345,11 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 
 	if host == "redir" {
 		if path == "unauth" {
-			log_data(&conf.log_format, 401, "WebUnAuth", req, &conn_info, None);
-			return ui::http_error(StatusCode::UNAUTHORIZED, "401 Unauthorized", "Valid credentials are required to acccess this resource.")
+			log_data(&conf.log_format, 401, "WebUnAuth", &req, &conn_info, None);
+			return Either::A(ui::http_error(StatusCode::UNAUTHORIZED, "401 Unauthorized", "Valid credentials are required to acccess this resource."))
 		}
-		log_data(&conf.log_format, 301, "WebRedir", req, &conn_info, None);
-		return redir(&path);
+		log_data(&conf.log_format, 301, "WebRedir", &req, &conn_info, None);
+		return Either::A(redir(&path));
 	}
 
 	if host == "proxy" {
@@ -387,16 +358,17 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 			path = path + "?" + req.query_string();
 		}
 
-		log_data(&conf.log_format, 200, "WebProxy", req, &conn_info, None);
-		if req.headers().get(header::UPGRADE).unwrap_or(blankhead).to_str().unwrap_or("") == "websocket" {
-			return result(ws::start(req, WsProxy::new(&path, conf.websocket_timeout))).responder()
-		}
-		return proxy_request(&path, req.method().to_owned(), req.headers(), req.payload(), conn_info.remote().unwrap_or("127.0.0.1"))
+		log_data(&conf.log_format, 200, "WebProxy", &req, &conn_info, None);
+		// TODO: Update websocket stuff
+		//if req.headers().get(header::UPGRADE).unwrap_or(blankhead).to_str().unwrap_or("") == "websocket" {
+		//	return ws::start(req, WsProxy::new(&path, conf.websocket_timeout)).responder()
+		//}
+		return Either::B(proxy_request(&path, req.method().to_owned(), req.headers(), body, conn_info.remote().unwrap_or("127.0.0.1"), &conf))
 	}
 
 	if req.method() != Method::GET && req.method() != Method::HEAD {
-		log_data(&conf.log_format, 405, "WebBadMethod", req, &conn_info, None);
-		return ui::http_error(StatusCode::METHOD_NOT_ALLOWED, "405 Method Not Allowed", "Only GET and HEAD methods are supported.")
+		log_data(&conf.log_format, 405, "WebBadMethod", &req, &conn_info, None);
+		return Either::A(ui::http_error(StatusCode::METHOD_NOT_ALLOWED, "405 Method Not Allowed", "Only GET and HEAD methods are supported."))
 	}
 
 	let mut full_path = match fp {
@@ -421,52 +393,55 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 	let (f, finfo);
 	if let Ok((fi, m)) = open_meta(&full_path) {f = fi; finfo = m} else {
 		if path.ends_with("/index.html") {
-			log_data(&conf.log_format, 200, "WebDir", req, &conn_info, None);
-			return ui::dir_listing(&[&*host, rawpath].concat(), &host)
+			log_data(&conf.log_format, 200, "WebDir", &req, &conn_info, None);
+			return Either::A(ui::dir_listing(&[&*host, rawpath].concat(), &host))
 		}
 
-		log_data(&conf.log_format, 404, "WebNotFound", req, &conn_info, None);
-		return ui::http_error(StatusCode::NOT_FOUND, "404 Not Found", &["The resource ", rawpath, " could not be found."].concat());
+		log_data(&conf.log_format, 404, "WebNotFound", &req, &conn_info, None);
+		return Either::A(ui::http_error(StatusCode::NOT_FOUND, "404 Not Found", &["The resource ", rawpath, " could not be found."].concat()));
 	}
 
 	if finfo.is_dir() {
-		return redir(&[rawpath, "/"].concat());
+		return Either::A(redir(&[rawpath, "/"].concat()));
 	}
 
 	// Parse a ranges header if it is present, and then turn a File into a stream.
-	let (length, offset) = stream::calculate_ranges(&req.drop_state(), finfo.len() as usize);
+	let (length, offset) = stream::calculate_ranges(&req, finfo.len());
 	let has_range = offset != 0 || length as u64 != finfo.len();
 	let body = if length > conf.max_streaming_len || has_range {
-		Body::Streaming(Box::new(stream::ChunkedReadFile {
+		Body::from_message(BodyStream::new(stream::ChunkedReadFile {
 			offset,
 			size: length,
-			cpu_pool: req.cpu_pool().to_owned(),
 			file: Some(f),
 			fut: None,
 			counter: 0,
 			chunk_size: conf.max_streaming_len,
 		}))
 	} else if length == 0 {
-		Body::Binary(Binary::Bytes(Bytes::from("\n")))
+		Body::Bytes(Bytes::from("\n"))
 	} else {
-		Body::Binary(Binary::Bytes(stream::read_file(f).unwrap_or_else(|_| Bytes::from(""))))
+		Body::Bytes(stream::read_file(f).unwrap_or_else(|_| Bytes::from("")))
 	};
 
-	log_data(&conf.log_format, 200, "Web", req, &conn_info, Some(length));
+	log_data(&conf.log_format, 200, "Web", &req, &conn_info, Some(length));
 
 	// Craft a response.
 	let cache_int = conf.caching_timeout;
-	result(Ok(
-		HttpResponse::Ok()
-	        .content_type(&*mime)
+	Either::A(HttpResponse::Ok()
+			.if_true(&*mime != "unknown/unknown", |builder| {
+				builder.content_type(&*mime);
+				if conf.protect {
+					builder.header(header::X_CONTENT_TYPE_OPTIONS, "nosniff");
+				}
+			})
 			.header(header::ACCEPT_RANGES, "bytes")
 			.header(header::CONTENT_LENGTH, length.to_string())
 			.if_true(full_path.ends_with(".br"), |builder| {
 				builder.header(header::CONTENT_ENCODING, "br");
-				builder.content_encoding(ContentEncoding::Identity);
+				builder.encoding(ContentEncoding::Identity);
 			})
 			.if_true(!full_path.ends_with(".br") && stream::gztypes.binary_search(&&*mim).is_err(), |builder| {
-				builder.content_encoding(ContentEncoding::Identity);
+				builder.encoding(ContentEncoding::Identity);
 			})
 			.if_true(has_range, |builder| {
 				builder.status(StatusCode::PARTIAL_CONTENT);
@@ -483,21 +458,19 @@ fn index(req: &HttpRequest) -> Box<Future<Item=HttpResponse, Error=Error>> {
 			})
 			.if_true(conf.protect, |builder| {
 				builder.header(header::REFERRER_POLICY, "no-referrer");
-				builder.header(header::X_CONTENT_TYPE_OPTIONS, "nosniff");
 				builder.header(header::CONTENT_SECURITY_POLICY, "default-src https: wss: data: 'unsafe-inline' 'unsafe-eval' 'self'; frame-ancestors 'self'");
 				builder.header(header::X_XSS_PROTECTION, "1; mode=block");
 			})
 			.header(header::SERVER, "KatWebX")
-            .body(body)))
-        	.responder()
+            .body(body))
 }
 
 // Load configuration, SSL certs, then attempt to start the program.
 fn main() {
+	println!("[Warn]: You are using an unstable Git version of KatWebX. You WILL experience bugs, and some functionality may not work properly. Never use Git versions in production, unless you know what you're doing.");
 	println!("[Info]: Starting KatWebX...");
 	let sys = System::new("katwebx");
 	lazy_static::initialize(&confm);
-	lazy_static::initialize(&clientconn);
 	let conf = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true); // We can't hold the RwLock on the main thread, or we won't be able to reload the config.
 	env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
 		println!("[Fatal]: Unable to open root folder!");
@@ -540,10 +513,6 @@ fn main() {
 	}
 
 	tconfig.cert_resolver = Arc::new(cert_resolver);
-	let acceptor = RustlsAcceptor::with_flags(
-		tconfig,
-		ServerFlags::HTTP1 | ServerFlags::HTTP2,
-	);
 
 	#[cfg(unix)] {
 		// Configuration reloading
@@ -569,18 +538,24 @@ fn main() {
 		// Socket request handling
 		let mut listenfd = ListenFd::from_env();
 		if let Ok(Some(l)) = listenfd.take_tcp_listener(0) {
-			server::new(|| {
-				App::new()
-					.default_resource(|r| r.f(hsts))
-			}).keep_alive(conf.stream_timeout as usize)
-			.listen(l).start();
+			HttpServer::new(
+				|| App::new().route("/", web::to(hsts)))
+			.keep_alive(conf.stream_timeout as usize)
+			.listen(l).unwrap_or_else(|_err| {
+				println!("[Fatal]: Unable to initialize socket!");
+				process::exit(exitcode::DATAERR);
+			})
+			.start();
 
 			if let Ok(Some(li)) = listenfd.take_tcp_listener(1) {
-				server::new(|| {
-					App::new()
-						.default_resource(|r| r.f(index))
-				}).keep_alive(conf.stream_timeout as usize)
-				.listen_with(li, move || acceptor.to_owned()).start();
+				HttpServer::new(
+					|| App::new().route("/", web::to(index)))
+				.keep_alive(conf.stream_timeout as usize)
+				.listen_rustls(li, tconfig).unwrap_or_else(|_err| {
+					println!("[Fatal]: Unable to initialize socket!");
+					process::exit(exitcode::DATAERR);
+				})
+		        .start();
 			}
 
 			println!("[Info]: Started KatWebX in socket mode.");
@@ -591,22 +566,18 @@ fn main() {
 	}
 
 	// TCP request handling
-    server::new(|| {
-		App::new()
-			.default_resource(|r| r.f(index))
-	})
+	HttpServer::new(
+		|| App::new().route("/", web::to(hsts)))
 		.keep_alive(conf.stream_timeout as usize)
-		.bind_with(&conf.tls_addr, move || acceptor.to_owned())
+		.bind_rustls(&conf.tls_addr, tconfig)
 		.unwrap_or_else(|_err| {
 			println!("{}", ["[Fatal]: Unable to bind to ", &conf.tls_addr, "!"].concat());
 			process::exit(exitcode::NOPERM);
 		})
         .start();
 
-	server::new(|| {
-		App::new()
-			.default_resource(|r| r.f(hsts))
-	})
+	HttpServer::new(
+		|| App::new().route("/", web::to(index)))
 		.keep_alive(conf.stream_timeout as usize)
 		.bind(&conf.http_addr)
 		.unwrap_or_else(|_err| {

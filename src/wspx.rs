@@ -6,7 +6,7 @@ extern crate bytes;
 
 use trim_prefix;
 use actix::*;
-use actix_web::{actix::Actor, Binary, ws, ws::{Client, ClientWriter, Message, ProtocolError}};
+use actix_web::{Binary, awc::ws, awc::ws::{Client, ClientWriter, Message, ProtocolError}};
 use futures::Future;
 use std::{thread, sync::mpsc::{Receiver, Sender, channel}, time::{Duration, Instant}};
 
