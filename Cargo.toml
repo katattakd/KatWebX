@@ -32,18 +32,18 @@ mime = "=0.3.13"
 mime_guess = "=2.0.0-alpha.6"
 number_prefix = "=0.2.8"
 percent-encoding = "=1.0.1"
-webpki = "=0.19.1" # Currently can't be upgraded to latest version
+webpki = "=0.19.1"
 
 # The libraires below should be updated often (at least once a month), with new versions being tested before use.
-actix = "0.8.1" # Currently can't be upgraded to latest version
+actix = "0.8.1"
 brotli = "3.3.0"
 bytes = "0.4.12"
 regex = "1.1.2"
-rustls = "0.15.2" # Currently can't be upgraded to latest version
 serde = "1.0.89"
 serde_derive = "1.0.89"
 
 # The libraires below should always use the lastest version whenever possible.
+rustls = ">=0.15.2"
 actix-web = { version = ">=1.0.0-alpha.6", default-features = false, features = ["client", "ssl", "flate2-rust", "rust-tls"] }
 actix-http = { version = ">=0.1.0-alpha.5" }
 actix-server = { version = ">=0.4.2", default-features = false, features = ["rust-tls"] }

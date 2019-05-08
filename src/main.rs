@@ -53,7 +53,7 @@ use base64::decode;
 use regex::{Regex, NoExpand};
 use chrono::Local;
 use percent_encoding::{percent_decode};
-use rustls::{ALL_CIPHERSUITES, NoClientAuth, ServerConfig, BulkAlgorithm};
+use rustls::{NoClientAuth, ServerConfig};
 #[cfg(unix)]
 use listenfd::ListenFd;
 #[cfg(unix)]
@@ -68,7 +68,7 @@ fn rc(lock: &confm) -> RwLockReadGuard<Config> {
 	lock.read().unwrap_or_else(|_| {
 		println!("[Fatal]: Something seriously went wrong when KatWebX was reloading!");
 		println!("Hot-reloading the config safely isn't perfect. You should never encounter this error, but if you do, please report it on KatWebX's GitHub.");
-		process::exit(exitcode::SOFTWARE);
+		process::exit(exitcode::SOFTWARE); // If the RwLock manages to get posioned (which should be impossible), anything which requires access to the config will fail to function properly.
 	})
 }
 
@@ -80,14 +80,14 @@ fn handle_path(path: &str, host: &str, auth: &str, c: &Config) -> (String, Strin
 	let mut host = trim_port(host);
 	let hostn = host.to_owned();
 	let auth = &decode(trim_prefix("Basic ", auth)).unwrap_or_else(|_| vec![]);
-	let auth = &*String::from_utf8_lossy(auth);
+	let auth = &*String::from_utf8_lossy(auth); // Decode auth headers, ignoring invalid characters.
 
 	let fp = &[host, path].concat();
 	match path {
 		_ if path.ends_with("/index.html") => return ("./".to_owned(), "redir".to_owned(), None),
 		_ if path.contains("..") => return ("..".to_owned(), "redir".to_owned(), None),
 		_ => (),
-	}
+	} // Prevent the client from accessing data they aren't supposed to access, at the risk of breaking some (very badly designed) clients. A more elegant solution could be possible, but it isn't worth implementing.
 
 	if c.authx.is_match(fp) {
 		let mut r = "$x";
@@ -146,7 +146,7 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 
 	for (key, value) in headers.iter() {
 		match key.as_str() {
-			"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "te" | "trailer" | "transfer-encoding" | "upgrade" => (),
+			"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "te" | "trailer" | "transfer-encoding" | "upgrade" => (), // These could mess up our connection with the proxied server, and should be removed.
 			"x-forwarded-for" => {
 				req = req.set_header("X-Forwarded-For", [value.to_str().unwrap_or("127.0.0.1"), ", ", client_ip].concat());
 				continue
@@ -158,22 +158,23 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 		};
 	}
 
-	Box::new(req.send_stream(body).map_err(Error::from).and_then(|resp| {
+	Box::new(req.send_stream(body).map_err(|_| {
+		// The only SendRequestError that could be caused by a user would be InvalidUrl, but we already do URL checking. All possible SendRequestErrors can't be caused by a client issue, only a server-side one.
+		Error::from(ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server."))
+	}).map(|resp| {
 			HttpResponse::Ok()
 				.status(resp.status())
 				.if_true(true, |req| {
 					for (key, value) in resp.headers().iter() {
 						match key.as_str() {
-							"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "te" | "trailer" | "transfer-encoding" | "upgrade" => (),
+							"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "te" | "trailer" | "transfer-encoding" | "upgrade" => (), // These could mess up our connection with the client, and should be removed.
 							"content-encoding" => {req.header(key.to_owned(), value.to_owned()); req.encoding(ContentEncoding::Identity);},
-							_ => {req.header(key.to_owned(), value.to_owned());},
+							_ => {req.header(key.to_owned(), value.to_owned());}, // Make sure compressed data doesn't get recompressed.
 						}
 					}
 				})
 				.body(Body::from_message(BodyStream::new(resp)))
-		}))/*.wait().unwrap_or_else(|_| {
-			ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server.")
-		})*/
+		}))
 }
 
 // Trim the port from an IPv4 address, IPv6 address, or domain:port.
@@ -428,11 +429,9 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 	// Craft a response.
 	let cache_int = conf.caching_timeout;
 	Either::A(HttpResponse::Ok()
-			.if_true(&*mime != "unknown/unknown", |builder| {
+			.if_true(&*mime != "unknown/unknown", |builder| { // Only specify a MIME type if we know one. If we do know one, don't let the browser override our decision.
 				builder.content_type(&*mime);
-				if conf.protect {
-					builder.header(header::X_CONTENT_TYPE_OPTIONS, "nosniff");
-				}
+				builder.header(header::X_CONTENT_TYPE_OPTIONS, "nosniff");
 			})
 			.header(header::ACCEPT_RANGES, "bytes")
 			.header(header::CONTENT_LENGTH, length.to_string())
@@ -467,19 +466,18 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 
 // Load configuration, SSL certs, then attempt to start the program.
 fn main() {
-	println!("[Warn]: You are using an unstable Git version of KatWebX. You WILL experience bugs, and some functionality may not work properly. Never use Git versions in production, unless you know what you're doing.");
+	println!("[Warn]: You are using an unstable Git version of KatWebX. You WILL experience bugs, documentation will likely not be 100% accurate, and some functionality may not work properly. Never use Git versions in production, unless you know the code well, and are prepared to deal with issues as they come up.");
 	println!("[Info]: Starting KatWebX...");
 	let sys = System::new("katwebx");
 	lazy_static::initialize(&confm);
-	let conf = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true); // We can't hold the RwLock on the main thread, or we won't be able to reload the config.
+	let conf = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true); // We can't hold the RwLock on the main thread, or we won't be able to reload the config. We'll have to read the config manually.
 	env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
 		println!("[Fatal]: Unable to open root folder!");
-		process::exit(exitcode::NOINPUT);
+		process::exit(exitcode::NOINPUT); // If we let the webserver start where it isn't supposed to be, it could pose a security risk. Refusing to start outright is the best desision here.
 	});
 
 	let mut tconfig = ServerConfig::new(NoClientAuth::new());
-	tconfig.ignore_client_order = conf.chacha;
-	tconfig.ciphersuites = ALL_CIPHERSUITES.to_vec().into_iter().filter(|x| x.bulk != BulkAlgorithm::AES_128_GCM).collect();
+	tconfig.ignore_client_order = conf.chacha; // Rustls has ChaChaPoly ciphers higher in the order than AES ciphers.
 
 	let tls_folder = fs::read_dir(conf.cert_folder.to_owned()).unwrap_or_else(|_| {
 		println!("[Fatal]: Unable to open certificate folder!");
@@ -526,6 +524,7 @@ fn main() {
 					process::exit(exitcode::NOINPUT);
 				});
 				let mut confw = confm.write().unwrap_or_else(|_| {
+					// If the RwLock manages to get posioned (which should be impossible), anything which requires access to the config will fail to function properly.
 					println!("[Fatal]: Something seriously went wrong when KatWebX was reloading!");
 					println!("Hot-reloading the config safely isn't perfect. You should never encounter this error, but if you do, please report it on KatWebX's GitHub.");
 					process::exit(exitcode::SOFTWARE);
@@ -539,7 +538,7 @@ fn main() {
 		let mut listenfd = ListenFd::from_env();
 		if let Ok(Some(l)) = listenfd.take_tcp_listener(0) {
 			HttpServer::new(
-				|| App::new().route("/", web::to(hsts)))
+				|| App::new().route("/*", web::to(hsts)))
 			.keep_alive(conf.stream_timeout as usize)
 			.listen(l).unwrap_or_else(|_err| {
 				println!("[Fatal]: Unable to initialize socket!");
@@ -549,7 +548,7 @@ fn main() {
 
 			if let Ok(Some(li)) = listenfd.take_tcp_listener(1) {
 				HttpServer::new(
-					|| App::new().route("/", web::to(index)))
+					|| App::new().route("/*", web::to(index)))
 				.keep_alive(conf.stream_timeout as usize)
 				.listen_rustls(li, tconfig).unwrap_or_else(|_err| {
 					println!("[Fatal]: Unable to initialize socket!");
@@ -567,7 +566,7 @@ fn main() {
 
 	// TCP request handling
 	HttpServer::new(
-		|| App::new().route("/", web::to(hsts)))
+		|| App::new().route("/*", web::to(hsts)))
 		.keep_alive(conf.stream_timeout as usize)
 		.bind_rustls(&conf.tls_addr, tconfig)
 		.unwrap_or_else(|_err| {
@@ -577,7 +576,7 @@ fn main() {
         .start();
 
 	HttpServer::new(
-		|| App::new().route("/", web::to(index)))
+		|| App::new().route("/*", web::to(index)))
 		.keep_alive(conf.stream_timeout as usize)
 		.bind(&conf.http_addr)
 		.unwrap_or_else(|_err| {
@@ -591,7 +590,7 @@ fn main() {
 	println!("\n[Info]: Stopping KatWebX...");
 }
 
-// Unit tests for critical internal functions.
+// Unit tests for critical internal functions. These will likely be expanded in the future, as they only cover a tiny portion of the total codebase.
 #[cfg(test)]
 mod tests {
 	use {config, handle_path, trim_port, trim_host, trim_prefix, trim_suffix, trim_regex};
