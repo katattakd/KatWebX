@@ -68,7 +68,7 @@ fn rc(lock: &confm) -> RwLockReadGuard<Config> {
 	lock.read().unwrap_or_else(|_| {
 		println!("[Fatal]: Something seriously went wrong when KatWebX was reloading!");
 		println!("Hot-reloading the config safely isn't perfect. You should never encounter this error, but if you do, please report it on KatWebX's GitHub.");
-		process::exit(exitcode::SOFTWARE); // If the RwLock manages to get posioned (which should be impossible), anything which requires access to the config will fail to function properly.
+		process::exit(exitcode::SOFTWARE); // If the RwLock manages to get poisoned (which should be impossible), anything which requires access to the config will fail to function properly.
 	})
 }
 
@@ -524,7 +524,7 @@ fn main() {
 					process::exit(exitcode::NOINPUT);
 				});
 				let mut confw = confm.write().unwrap_or_else(|_| {
-					// If the RwLock manages to get posioned (which should be impossible), anything which requires access to the config will fail to function properly.
+					// If the RwLock manages to get poisoned (which should be impossible), anything which requires access to the config will fail to function properly.
 					println!("[Fatal]: Something seriously went wrong when KatWebX was reloading!");
 					println!("Hot-reloading the config safely isn't perfect. You should never encounter this error, but if you do, please report it on KatWebX's GitHub.");
 					process::exit(exitcode::SOFTWARE);
