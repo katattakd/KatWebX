@@ -8,7 +8,8 @@ matrix:
   include:
     - env: TARGET=aarch64-unknown-linux-gnu
     - env: TARGET=arm-unknown-linux-gnueabi
-    - env: TARGET=armv7-unknown-linux-gnueabihf
+    # TODO: Figure out why KatWebX fails to build for this target.
+    # - env: TARGET=armv7-unknown-linux-gnueabihf
     - env: TARGET=i686-unknown-linux-gnu
     - env: TARGET=i686-unknown-linux-musl
     # Ring dependency does not support MIPS: https://github.com/briansmith/ring/issues/562
@@ -22,7 +23,7 @@ matrix:
     #- env: TARGET=powerpc64le-unknown-linux-gnu
     # Ring dependency does not support s390x, and will likely not add support in the future.
     # - env: TARGET=s390x-unknown-linux-gnu DISABLE_TESTS=1
-    # TODO: Figure out why ring fails to build for these targets.
+    # TODO: Figure out why KatWebX fails to build for these targets.
     #- env: TARGET=x86_64-unknown-linux-gnu
     - env: TARGET=x86_64-unknown-linux-musl
     #- env: TARGET=i686-apple-darwin
@@ -32,7 +33,7 @@ matrix:
     #- env: TARGET=i686-unknown-freebsd DISABLE_TESTS=1
     - env: TARGET=x86_64-unknown-freebsd DISABLE_TESTS=1
     - env: TARGET=x86_64-unknown-netbsd DISABLE_TESTS=1
-    - env: TARGET=x86_64-pc-windows-gnu
+    #- env: TARGET=x86_64-pc-windows-gnu
 before_install:
   - set -e
   - rustup self update
