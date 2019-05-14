@@ -572,7 +572,7 @@ fn main() {
 
 	// TCP request handling
 	HttpServer::new(
-		|| App::new().route("/*", web::to(hsts)))
+		|| App::new().route("/*", web::to(index)))
 		.keep_alive(conf.stream_timeout as usize)
 		.bind_rustls(&conf.tls_addr, tconfig)
 		.unwrap_or_else(|_err| {
@@ -582,7 +582,7 @@ fn main() {
         .start();
 
 	HttpServer::new(
-		|| App::new().route("/*", web::to(index)))
+		|| App::new().route("/*", web::to(hsts)))
 		.keep_alive(conf.stream_timeout as usize)
 		.bind(&conf.http_addr)
 		.unwrap_or_else(|_err| {
