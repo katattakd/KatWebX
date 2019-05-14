@@ -2,7 +2,6 @@
 
 // This is currently a non-issue, and can be ignored.
 #![allow(clippy::filter_map)]
-
 extern crate lazy_static;
 extern crate actix_web;
 extern crate futures;

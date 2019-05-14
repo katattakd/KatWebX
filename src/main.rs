@@ -23,7 +23,9 @@ extern crate signal_hook;
 extern crate rustls;
 extern crate futures;
 extern crate actix;
+//extern crate actix_codec;
 extern crate actix_web;
+//extern crate actix_web_actors;
 extern crate actix_http;
 extern crate actix_server;
 extern crate mime_guess;
@@ -41,12 +43,11 @@ use config::Config;
 //mod wspx;
 //use wspx::WsProxy;
 mod certs;
-//mod wspx;
-//use wspx::WsProxy;
 use actix::System;
 use futures::Future;
 use actix_http::body::BodyStream;
-use actix_web::{web, web::Payload, Either, HttpServer, client::ClientBuilder, App, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, Error, middleware::BodyEncoding, dev::{Body, ConnectionInfo}, /*ws*/};
+use actix_web::{web, web::Payload, Either, HttpServer, client::ClientBuilder, App, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, Error, middleware::BodyEncoding, dev::{Body, ConnectionInfo}};
+//use actix_web_actors::ws;
 use std::{env, process, fs, string::String, fs::File, path::Path, time::Duration, sync::{Arc, RwLock, RwLockReadGuard}, ffi::OsStr, thread};
 use bytes::Bytes;
 use base64::decode;
@@ -360,10 +361,14 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 		}
 
 		log_data(&conf.log_format, 200, "WebProxy", &req, &conn_info, None);
-		// TODO: Update websocket stuff
-		//if req.headers().get(header::UPGRADE).unwrap_or(blankhead).to_str().unwrap_or("") == "websocket" {
-		//	return ws::start(req, WsProxy::new(&path, conf.websocket_timeout)).responder()
-		//}
+		if req.headers().get(header::UPGRADE).unwrap_or(blankhead).to_str().unwrap_or("") == "websocket" {
+			// Actix-web 1.0's websocket stuff isn't ready for our use yet, so we'll have to wait a bit before we can implement this.
+			/*if let Ok(resp) = ws::start(WsProxy::new(&path, conf.websocket_timeout), &req, body) {
+				return Either::A(resp)
+			} else {*/
+				return Either::A(ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server."))
+			//}
+		}
 		return Either::B(proxy_request(&path, req.method().to_owned(), req.headers(), body, conn_info.remote().unwrap_or("127.0.0.1"), &conf))
 	}
 
@@ -519,10 +524,11 @@ fn main() {
 			for _ in signals.forever() {
 				println!("[Info]: Reloading KatWebX's configuration...");
 				let conf = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true);
-				env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
-					println!("[Fatal]: Unable to open root folder!");
-					process::exit(exitcode::NOINPUT);
-				});
+				// Although reloading the root folder when reloading the config may seem like a good idea, it could cause a lot of issues for users, especially those who specify a relative root folder path.
+				//env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
+				//	println!("[Fatal]: Unable to open root folder!");
+				//	process::exit(exitcode::NOINPUT);
+				//});
 				let mut confw = confm.write().unwrap_or_else(|_| {
 					// If the RwLock manages to get poisoned (which should be impossible), anything which requires access to the config will fail to function properly.
 					println!("[Fatal]: Something seriously went wrong when KatWebX was reloading!");

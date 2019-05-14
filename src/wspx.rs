@@ -5,17 +5,20 @@ extern crate futures;
 extern crate bytes;
 
 use trim_prefix;
-use actix::*;
-use actix_web::{Binary, awc::ws, awc::ws::{Client, ClientWriter, Message, ProtocolError}};
+use actix::{Actor, Context, Handler, Arbiter, Message, StreamHandler};
+use actix_codec::Framed;
+use actix_web_actors::ws;
+use actix_web::client::{Client, ws::Codec};
+use bytes::Bytes;
 use futures::Future;
 use std::{thread, sync::mpsc::{Receiver, Sender, channel}, time::{Duration, Instant}};
 
-struct WsClient(ClientWriter, Sender<ClientCommand>, Instant, u64);
+struct WsClient(Framed<BoxedSocket, Codec>, Sender<ClientCommand>, Instant, u64);
 
 #[derive(Message)]
 enum ClientCommand {
 	Str(String),
-	Bin(Binary),
+	Bin(Bytes),
 	Ping(String),
 	Pong(String),
 }
@@ -99,13 +102,12 @@ impl WsProxy {
 		let (sender2, receiver2) = channel();
 
 		Arbiter::spawn(
-			Client::new(["ws", trim_prefix("http", path)].concat())
-				.connect()
+			Client::new(["ws", trim_prefix("http", path)].concat()).ws().connect()
 				.map_err(|e| {println!("{:?}", e)})
-				.map(move |(reader, writer)| {
+				.map(|(_, framed)| {
 					let addr = WsClient::create(move |ctx| {
-						WsClient::add_stream(reader, ctx);
-						WsClient(writer, sender2, Instant::now(), timeout)
+						WsClient::add_stream(framed, ctx);
+						WsClient(framed, sender2, Instant::now(), timeout)
 					});
 					thread::spawn(move || {
 						for cmd in receiver1.iter() {
