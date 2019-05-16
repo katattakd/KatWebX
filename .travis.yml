@@ -8,9 +8,8 @@ matrix:
   include:
     - env: TARGET=aarch64-unknown-linux-gnu
     - env: TARGET=arm-unknown-linux-gnueabi
-    # TODO: Figure out why KatWebX fails to build for this target.
-    # - env: TARGET=armv7-unknown-linux-gnueabihf
-    - env: TARGET=i686-unknown-linux-gnu
+    #- env: TARGET=armv7-unknown-linux-gnueabihf <- OpenSSL won't build, image too outdated
+    #- env: TARGET=i686-unknown-linux-gnu <- OpenSSL won't build, image too outdated
     - env: TARGET=i686-unknown-linux-musl
     # Ring dependency does not support MIPS: https://github.com/briansmith/ring/issues/562
     #- env: TARGET=mips-unknown-linux-gnu
@@ -23,17 +22,16 @@ matrix:
     #- env: TARGET=powerpc64le-unknown-linux-gnu
     # Ring dependency does not support s390x, and will likely not add support in the future.
     # - env: TARGET=s390x-unknown-linux-gnu DISABLE_TESTS=1
-    # TODO: Figure out why KatWebX fails to build for these targets.
-    #- env: TARGET=x86_64-unknown-linux-gnu
+    #- env: TARGET=x86_64-unknown-linux-gnu <- Ring won't build, image too outdated
     - env: TARGET=x86_64-unknown-linux-musl
-    #- env: TARGET=i686-apple-darwin
+    #- env: TARGET=i686-apple-darwin <- backtrace-sys won't build, missing libraries
       #os: osx
-    - env: TARGET=x86_64-apple-darwin
+    - env: TARGET=x86_64-apple-darwin # Not building locally, but building in CI? I should probably look into why this is happening.
       os: osx
-    #- env: TARGET=i686-unknown-freebsd DISABLE_TESTS=1
+    #- env: TARGET=i686-unknown-freebsd DISABLE_TESTS=1 <- language-tags won't build, image too outdated
     - env: TARGET=x86_64-unknown-freebsd DISABLE_TESTS=1
     - env: TARGET=x86_64-unknown-netbsd DISABLE_TESTS=1
-    #- env: TARGET=x86_64-pc-windows-gnu
+    #- env: TARGET=x86_64-pc-windows-gnu <- OpenSSL won't build, image too outdated
 before_install:
   - set -e
   - rustup self update

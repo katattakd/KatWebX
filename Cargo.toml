@@ -39,16 +39,16 @@ actix = "0.8.1"
 brotli = "3.3.0"
 bytes = "0.4.12"
 regex = "1.1.2"
-serde = "1.0.89"
+serde = "1.0.91"
 serde_derive = "1.0.89"
 
 # The libraires below should always use the lastest version whenever possible.
 rustls = ">=0.15.2"
-openssl = { version = ">=0.10.22", features = ["vendored"] }
 #actix-codec = ">=0.1.2"
-actix-web = { version = ">=1.0.0-beta.4", default-features = false, features = ["client", "ssl", "flate2-rust", "rust-tls"] }
 #actix-web-actors = ">=1.0.0-beta.4"
-actix-http = ">=0.1.0-alpha.5"
+openssl = { version = ">=0.10.22", features = ["vendored"] }
+actix-web = { version = ">=1.0.0-beta.4", default-features = false, features = ["client",  "flate2-rust", "rust-tls"] }
+actix-http = { version = ">=0.1.0-alpha.5", default-features = false, features = ["brotli", "flate2-rust", "ssl"] }
 actix-server = { version = ">=0.4.2", default-features = false, features = ["rust-tls"] }
 
 [target.'cfg(unix)'.dependencies]
