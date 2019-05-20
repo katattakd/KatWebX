@@ -12,6 +12,11 @@ Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are l
 - July - A tool is released to automatically migrate existing setups from KatWeb to KatWebX. All KatWeb users will be told to upgrade to KatWebX.
 - August - KatWeb is given EOL status, and is discontinued. For users who still rely on KatWeb, per-person upgrade support and additional patches to KatWeb will be available on request until December 16, 2019.
 
+## Known issues (as of this document's writing)
+- Pre-release 1 and older will slowly leak memory, especially with large files. Restarting the server occasionally will fix this issue.
+- The current git version's reverse proxy misbehaves when dealing with some servers.
+- The current git version does not support reverse proxying websockets yet.
+
 ## Current Features
 - Easy to read TOML configuration
 - Flexible configuration parsing
