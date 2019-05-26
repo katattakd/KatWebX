@@ -47,7 +47,7 @@ rustls = ">=0.15.2"
 #actix-codec = ">=0.1.2"
 #actix-web-actors = ">=1.0.0-beta.4"
 openssl = { version = ">=0.10.22", features = ["vendored"] }
-actix-web = { version = ">=1.0.0-beta.4", default-features = false, features = ["client",  "flate2-rust", "rust-tls"] }
+actix-web = { version = ">=1.0.0-rc", default-features = false, features = ["client",  "flate2-rust", "rust-tls"] }
 actix-http = { version = ">=0.1.0-alpha.5", default-features = false, features = ["brotli", "flate2-rust", "ssl"] }
 actix-server = { version = ">=0.4.2", default-features = false, features = ["rust-tls"] }
 

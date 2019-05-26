@@ -147,7 +147,7 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 
 	for (key, value) in headers.iter() {
 		match key.as_str() {
-			"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "te" | "trailer" | "transfer-encoding" | "upgrade" => (), // These could mess up our connection with the proxied server, and should be removed.
+			"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "transfer-encoding" | "upgrade" => (), // These could mess up our connection with the proxied server, and should be removed.
 			"x-forwarded-for" => {
 				req = req.set_header("X-Forwarded-For", [value.to_str().unwrap_or("127.0.0.1"), ", ", client_ip].concat());
 				continue
@@ -168,13 +168,13 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 				.if_true(true, |req| {
 					for (key, value) in resp.headers().iter() {
 						match key.as_str() {
-							"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "te" | "trailer" | "transfer-encoding" | "upgrade" => (), // These could mess up our connection with the client, and should be removed.
+							"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "transfer-encoding" | "upgrade" => (), // These could mess up our connection with the client, and should be removed.
 							"content-encoding" => {req.header(key.to_owned(), value.to_owned()); req.encoding(ContentEncoding::Identity);},
 							_ => {req.header(key.to_owned(), value.to_owned());}, // Make sure compressed data doesn't get recompressed.
 						}
 					}
 				})
-				.body(Body::from_message(BodyStream::new(resp)))
+				.streaming(resp)
 		}))
 }
 
