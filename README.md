@@ -9,12 +9,12 @@ Interested in the project? You can help fund KatWebX's development by donating t
 ## Release Schedule
 Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are listed below.
 - June - KatWebX's first release.
-- July - A tool is released to automatically migrate existing setups from KatWeb to KatWebX. All KatWeb users will be told to upgrade to KatWebX.
+- July - A guide is released to automatically migrate existing setups from KatWeb to KatWebX. All KatWeb users will be told to upgrade to KatWebX.
 - August - KatWeb is given EOL status, and is discontinued. For users who still rely on KatWeb, per-person upgrade support and additional patches to KatWeb will be available on request until December 16, 2019.
 
 ## Known issues (as of this document's writing)
-- Pre-release 1 and older will slowly leak memory, especially with large files. Restarting the server occasionally will fix this issue.
-- The current git version's reverse proxy misbehaves when dealing with some servers.
+- Pre-release 1 and older will slowly leak memory, especially with large files. Restarting the server occasionally will fix this issue. This has been fixed in the current git version.
+- The current git version's reverse proxy misbehaves when dealing with servers that don't support keep-alive.
 - The current git version does not support reverse proxying websockets yet.
 
 ## Current Features
@@ -22,9 +22,9 @@ Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are l
 - Flexible configuration parsing
 - Regex-based redirects
 - Compressed regex-based reverse proxy
-- Websocket reverse proxying (currently broken in latest Git version)
+- Websocket reverse proxying
 - HTTP basic authentication
-- Fast file serving
+- Extremely fast file serving
 - Brotli file compression
 - Systemd/systemfd socket listening
 - On-the-fly config reloading

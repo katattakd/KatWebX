@@ -2,15 +2,11 @@
 #![deny(clippy::pedantic)]
 #![deny(clippy::cargo)]
 #![deny(clippy::all)]
-// It's not possible to fix this.
+// This is out of our control, and can't be easily fixed.
 #![allow(clippy::multiple_crate_versions)]
 #![allow(clippy::cargo_common_metadata)]
-// It's currently not possible to fix this.
+// This issue can't be fixed, due to a limitation of actix-web's API. Actix-web's API doesn't currently allow creating acceptors that use &HttpRequest instead of HttpRequest.
 #![allow(clippy::needless_pass_by_value)]
-// This is currently a non-issue, and can be ignored.
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::borrow_interior_mutable_const)]
-#![allow(non_upper_case_globals)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -40,8 +36,8 @@ mod stream;
 mod ui;
 mod config;
 use config::Config;
-//mod wspx;
-//use wspx::WsProxy;
+/*mod wspx;
+use wspx::WsProxy;*/
 mod certs;
 use actix::System;
 use futures::Future;
@@ -61,11 +57,12 @@ use listenfd::ListenFd;
 use signal_hook::{iterator::Signals, SIGHUP};
 
 lazy_static! {
-	static ref confm: RwLock<Config> = RwLock::new(Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true));
+	static ref BLANKHEAD: HeaderValue = HeaderValue::from_static("");
+	static ref CONFM: RwLock<Config> = RwLock::new(Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true));
 }
 
 // rc converts a RwLock<Config> into a config.
-fn rc(lock: &confm) -> RwLockReadGuard<Config> {
+fn rc(lock: &CONFM) -> RwLockReadGuard<Config> {
 	lock.read().unwrap_or_else(|_| {
 		println!("[Fatal]: Something seriously went wrong when KatWebX was reloading!");
 		println!("Hot-reloading the config safely isn't perfect. You should never encounter this error, but if you do, please report it on KatWebX's GitHub.");
@@ -73,22 +70,23 @@ fn rc(lock: &confm) -> RwLockReadGuard<Config> {
 	})
 }
 
-// Generate the correct host and path, from raw data.
-// Hidden hosts can be virtual-host based (hidden.local) or regex-based.
-// Redirects can be either full path based (localhost/redir) or regex-based.
-// Reverse proxying can be either virtual-host based (proxy.local) or regex-based.
+/* Generate the correct host and path, from raw data.
+Hidden hosts can be virtual-host based (hidden.local) or regex-based.
+Redirects can be either full path based (localhost/redir) or regex-based.
+Reverse proxying can be either virtual-host based (proxy.local) or regex-based. */
 fn handle_path(path: &str, host: &str, auth: &str, c: &Config) -> (String, String, Option<String>) {
 	let mut host = trim_port(host);
 	let hostn = host.to_owned();
 	let auth = &decode(trim_prefix("Basic ", auth)).unwrap_or_else(|_| vec![]);
 	let auth = &*String::from_utf8_lossy(auth); // Decode auth headers, ignoring invalid characters.
 
+	// Prevent the client from accessing data they aren't supposed to access, at the risk of breaking some (very badly designed) clients. A more elegant solution is possible, but it isn't worth implementing.
 	let fp = &[host, path].concat();
 	match path {
 		_ if path.ends_with("/index.html") => return ("./".to_owned(), "redir".to_owned(), None),
 		_ if path.contains("..") => return ("..".to_owned(), "redir".to_owned(), None),
 		_ => (),
-	} // Prevent the client from accessing data they aren't supposed to access, at the risk of breaking some (very badly designed) clients. A more elegant solution could be possible, but it isn't worth implementing.
+	}
 
 	if c.authx.is_match(fp) {
 		let mut r = "$x";
@@ -135,19 +133,18 @@ fn handle_path(path: &str, host: &str, auth: &str, c: &Config) -> (String, Strin
 	(pathn, host.to_owned(), Some(full_path))
 }
 
-// Reverse proxy a request, passing through any compression.
-// Hop-by-hop headers are removed, to allow connection reuse.
+/* Reverse proxy a request, passing through any compression.
+Hop-by-hop headers are removed, to allow connection reuse. */
 fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload, client_ip: &str, c: &Config) -> Box<Future<Item=HttpResponse, Error=Error>> {
 	let mut req = ClientBuilder::new().timeout(Duration::from_secs(c.stream_timeout as u64))
-		.max_redirects(5).finish().request(method, path)//.force_close()
-		.no_decompress()
+		.max_redirects(5).finish().request(method, path).no_decompress()
 		.set_header_if_none("X-Forwarded-For", client_ip)
 		.set_header_if_none(header::ACCEPT_ENCODING, "none")
 		.set_header_if_none(header::USER_AGENT, "KatWebX-Proxy");
 
 	for (key, value) in headers.iter() {
 		match key.as_str() {
-			"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "transfer-encoding" | "upgrade" => (), // These could mess up our connection with the proxied server, and should be removed.
+			"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "transfer-encoding" | "upgrade" => (),
 			"x-forwarded-for" => {
 				req = req.set_header("X-Forwarded-For", [value.to_str().unwrap_or("127.0.0.1"), ", ", client_ip].concat());
 				continue
@@ -159,16 +156,17 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 		};
 	}
 
-	Box::new(req.send_stream(body).map_err(|_| {
+	Box::new(req.send_stream(body).map_err(|_err| {
 		// The only SendRequestError that could be caused by a user would be InvalidUrl, but we already do URL checking. All possible SendRequestErrors can't be caused by a client issue, only a server-side one.
 		Error::from(ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server."))
+		//Error::from(_err) // This should only be uncommented when debugging potential issues with KatWebX. In the future, KatWebX will implement more detailed error messages.
 	}).map(|resp| {
 			HttpResponse::Ok()
 				.status(resp.status())
 				.if_true(true, |req| {
 					for (key, value) in resp.headers().iter() {
 						match key.as_str() {
-							"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "transfer-encoding" | "upgrade" => (), // These could mess up our connection with the client, and should be removed.
+							"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "transfer-encoding" | "upgrade" => (),
 							"content-encoding" => {req.header(key.to_owned(), value.to_owned()); req.encoding(ContentEncoding::Identity);},
 							_ => {req.header(key.to_owned(), value.to_owned());}, // Make sure compressed data doesn't get recompressed.
 						}
@@ -316,9 +314,10 @@ fn get_mime(path: &str) -> String {
 
 // HTTP request handling
 fn hsts(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Item=HttpResponse, Error=Error>>> {
-	let conf = rc(&confm);
+	let conf = rc(&CONFM);
 
-	if !conf.hsts {
+	// If HSTS is enabled, only clients that add the update-insecure-requests header will get redirected to HTTPS. All widely used modern browsers apply this header.
+	if !conf.hsts || req.headers().get(header::UPGRADE_INSECURE_REQUESTS).unwrap_or(&BLANKHEAD).to_str().unwrap_or("") != "1" {
 		return index(body, req);
 	}
 
@@ -335,15 +334,14 @@ fn hsts(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Item
 	Either::A(redir(&["https://", host, port, req.path()].concat()))
 }
 
-// HTTPS request handling.
+// HTTP(S) request handling.
 fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Item=HttpResponse, Error=Error>>> {
-	let conf = rc(&confm);
+	let conf = rc(&CONFM);
 
 	let rawpath = &percent_decode(req.path().as_bytes()).decode_utf8_lossy();
 	let conn_info = req.connection_info();
 
-	let blankhead = &HeaderValue::from_static("");
-	let (path, host, fp) = handle_path(rawpath, conn_info.host(), req.headers().get(header::AUTHORIZATION).unwrap_or(blankhead).to_str().unwrap_or(""), &conf);
+	let (path, host, fp) = handle_path(rawpath, conn_info.host(), req.headers().get(header::AUTHORIZATION).unwrap_or(&BLANKHEAD).to_str().unwrap_or(""), &conf);
 
 	if host == "redir" {
 		if path == "unauth" {
@@ -361,8 +359,11 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 		}
 
 		log_data(&conf.log_format, 200, "WebProxy", &req, &conn_info, None);
-		if req.headers().get(header::UPGRADE).unwrap_or(blankhead).to_str().unwrap_or("") == "websocket" {
+		if req.headers().get(header::UPGRADE).unwrap_or(&BLANKHEAD).to_str().unwrap_or("") == "websocket" {
 			// Actix-web 1.0's websocket stuff isn't ready for our use yet, so we'll have to wait a bit before we can implement this.
+			// You can read more about the issues with actix-web 1.0's websocket APIs from the links below. Once the websocket API is well doccumented, I will implement websocket support into KatWebX as soon as I can.
+			// https://github.com/actix/examples/issues/123
+			// https://github.com/actix/actix-web/issues/829
 			/*if let Ok(resp) = ws::start(WsProxy::new(&path, conf.websocket_timeout), &req, body) {
 				return Either::A(resp)
 			} else {*/
@@ -386,7 +387,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 	let mim = trim_suffix("; charset=utf-8", &mime);
 
 	// If the client accepts a brotli compressed response, then modify full_path to send one.
-	let ce = req.headers().get(header::ACCEPT_ENCODING).unwrap_or(blankhead).to_str().unwrap_or("");
+	let ce = req.headers().get(header::ACCEPT_ENCODING).unwrap_or(&BLANKHEAD).to_str().unwrap_or("");
 	if ce.contains("br") {
 		if conf.compress_files {
 			if let Ok(path) = stream::get_compressed_file(&*full_path, mim) {full_path = path}
@@ -444,7 +445,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 				builder.header(header::CONTENT_ENCODING, "br");
 				builder.encoding(ContentEncoding::Identity);
 			})
-			.if_true(!full_path.ends_with(".br") && stream::gztypes.binary_search(&&*mim).is_err(), |builder| {
+			.if_true(!full_path.ends_with(".br") && stream::GZTYPES.binary_search(&&*mim).is_err(), |builder| {
 				builder.encoding(ContentEncoding::Identity);
 			})
 			.if_true(has_range, |builder| {
@@ -462,7 +463,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 			})
 			.if_true(conf.protect, |builder| {
 				builder.header(header::REFERRER_POLICY, "no-referrer");
-				builder.header(header::CONTENT_SECURITY_POLICY, "default-src https: wss: data: 'unsafe-inline' 'unsafe-eval' 'self'; frame-ancestors 'self'");
+				builder.header(header::CONTENT_SECURITY_POLICY, "upgrade-insecure-requests; default-src https: wss: data: 'unsafe-inline' 'unsafe-eval' 'self'; frame-ancestors 'self'");
 				builder.header(header::X_XSS_PROTECTION, "1; mode=block");
 			})
 			.header(header::SERVER, "KatWebX")
@@ -474,8 +475,9 @@ fn main() {
 	println!("[Warn]: You are using an unstable Git version of KatWebX. You WILL experience bugs, documentation will likely not be 100% accurate, and some functionality may not work properly. Never use Git versions in production, unless you know the code well, and are prepared to deal with issues as they come up.");
 	println!("[Info]: Starting KatWebX...");
 	let sys = System::new("katwebx");
-	lazy_static::initialize(&confm);
-	lazy_static::initialize(&stream::gztypes);
+	lazy_static::initialize(&CONFM);
+	lazy_static::initialize(&BLANKHEAD);
+	lazy_static::initialize(&stream::GZTYPES);
 	let conf = Config::load_config(std::env::args().nth(1).unwrap_or_else(|| "conf.toml".to_owned()), true); // We can't hold the RwLock on the main thread, or we won't be able to reload the config. We'll have to read the config manually.
 	env::set_current_dir(conf.root_folder.to_owned()).unwrap_or_else(|_| {
 		println!("[Fatal]: Unable to open root folder!");
@@ -530,7 +532,7 @@ fn main() {
 				//	println!("[Fatal]: Unable to open root folder!");
 				//	process::exit(exitcode::NOINPUT);
 				//});
-				let mut confw = confm.write().unwrap_or_else(|_| {
+				let mut confw = CONFM.write().unwrap_or_else(|_| {
 					// If the RwLock manages to get poisoned (which should be impossible), anything which requires access to the config will fail to function properly.
 					println!("[Fatal]: Something seriously went wrong when KatWebX was reloading!");
 					println!("Hot-reloading the config safely isn't perfect. You should never encounter this error, but if you do, please report it on KatWebX's GitHub.");
