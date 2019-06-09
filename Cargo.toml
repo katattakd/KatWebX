@@ -18,42 +18,42 @@ maintenance = { status = "experimental" }
 [[bin]]
 name = "katwebx"
 
-[dependencies] # Last reviewed on January 22, 2019
-# The libraires below rarely require updating (every 3 months or less). All new versions should be tested and reviewed before use.
+[dependencies] # Last reviewed on June 9, 2019
+# The libraires below rarely require updating (every 4 weeks or less). All new versions should be tested and reviewed before use.
 base64 = "=0.10.1"
+brotli = "=3.3.0"
+bytes = "=0.4.12"
 chrono = "=0.4.6"
 exitcode = "=1.1.2"
-futures = "=0.1.26"
-futures-cpupool = "=0.1.8" # Currently can't be upgraded to latest version
+futures = "=0.1.27"
+futures-cpupool = "=0.1.8"
 htmlescape = "=0.3.1"
-toml = "=0.4.10"
+toml = "=0.5.1"
 lazy_static = "=1.3.0"
 mime = "=0.3.13"
 mime_guess = "=2.0.0-alpha.6"
-number_prefix = "=0.2.8"
+number_prefix = "=0.3.0"
 percent-encoding = "=1.0.1"
 webpki = "=0.19.1"
 
-# The libraires below should be updated often (at least once a month), with new versions being tested before use.
-actix = "0.8.1"
-brotli = "3.3.0"
-bytes = "0.4.12"
-regex = "1.1.2"
-serde = "1.0.91"
-serde_derive = "1.0.89"
+# The libraires below should be updated often (at least once every 2 weeks, with new versions being tested before use.
+actix = "0.8.3"
+regex = "1.1.7"
+serde = "1.0.92"
+serde_derive = "1.0.92"
 
 # The libraires below should always use the lastest version whenever possible.
 rustls = ">=0.15.2"
 #actix-codec = ">=0.1.2"
 #actix-web-actors = ">=1.0.0-beta.4"
-openssl = { version = ">=0.10.22", features = ["vendored"] }
-actix-web = { version = ">=1.0.0-rc", default-features = false, features = ["client",  "flate2-rust", "rust-tls"] }
-actix-http = { version = ">=0.1.0-alpha.5", default-features = false, features = ["brotli", "flate2-rust", "ssl"] }
-actix-server = { version = ">=0.4.2", default-features = false, features = ["rust-tls"] }
+openssl = { version = ">=0.10.23", features = ["vendored"] }
+actix-web = { version = ">=1.0.0", default-features = false, features = ["client",  "flate2-rust", "rust-tls"] }
+actix-http = { version = ">=0.2.3", default-features = false, features = ["brotli", "flate2-rust", "ssl"] }
+actix-server = { version = ">=0.5.1", default-features = false, features = ["rust-tls"] }
 
 [target.'cfg(unix)'.dependencies]
 listenfd = "=0.3.3"
-signal-hook = "=0.1.8"
+signal-hook = "=0.1.9"
 
 [profile.dev]
 opt-level = 1
