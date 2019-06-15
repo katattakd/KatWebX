@@ -1,5 +1,5 @@
 // Wspx.rs handles websocket proxying.
-extern crate actix;
+/*extern crate actix;
 extern crate actix_web;
 extern crate futures;
 extern crate bytes;
@@ -8,12 +8,13 @@ use trim_prefix;
 use actix::{Actor, Context, Handler, Arbiter, Message, StreamHandler};
 use actix_codec::Framed;
 use actix_web_actors::ws;
-use actix_web::client::{Client, ws::Codec};
+use actix_web::{client::Client, Error, http::StatusCode};
+use actix_http::ws::{Codec, ProtocolError};
 use bytes::Bytes;
-use futures::Future;
+use futures::{Future, Stream, stream::{SplitSink, SplitStream}};
 use std::{thread, sync::mpsc::{Receiver, Sender, channel}, time::{Duration, Instant}};
 
-struct WsClient(Framed<BoxedSocket, Codec>, Sender<ClientCommand>, Instant, u64);
+struct WsClient(SplitSink, SplitStream, Instant, u64);
 
 #[derive(Message)]
 enum ClientCommand {
@@ -102,19 +103,20 @@ impl WsProxy {
 		let (sender2, receiver2) = channel();
 
 		Arbiter::spawn(
-			Client::new(["ws", trim_prefix("http", path)].concat()).ws().connect()
+			Client::new().ws(["ws", trim_prefix("http", path)].concat()).connect()
 				.map_err(|e| {println!("{:?}", e)})
 				.map(|(_, framed)| {
+					let (Sink, Stream) = framed.split();
 					let addr = WsClient::create(move |ctx| {
-						WsClient::add_stream(framed, ctx);
-						WsClient(framed, sender2, Instant::now(), timeout)
+						WsClient::add_stream(Stream, ctx);
+						WsClient(Sink, Stream, Instant::now(), timeout)
 					});
 					thread::spawn(move || {
 						for cmd in receiver1.iter() {
 							addr.do_send(cmd);
 						};
 					});
-				}),
+				})
 		);
 
 		Self {
@@ -169,4 +171,4 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for WsProxy {
 	fn finished(&mut self, ctx: &mut Self::Context) {
 		ctx.stop()
 	}
-}
+}*/

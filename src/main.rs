@@ -1,6 +1,6 @@
 #![deny(clippy::nursery)]
 #![deny(clippy::pedantic)]
-#![deny(clippy::cargo)]
+//#![deny(clippy::cargo)]
 #![deny(clippy::all)]
 // This is out of our control, and can't be easily fixed.
 #![allow(clippy::multiple_crate_versions)]
@@ -46,8 +46,6 @@ use actix_web::{web, web::Payload, Either, HttpServer, client::ClientBuilder, Ap
 //use actix_web_actors::ws;
 use std::{env, process, fs, string::String, fs::File, path::Path, time::Duration, sync::{Arc, RwLock, RwLockReadGuard}, ffi::OsStr, thread};
 use bytes::Bytes;
-use base64::decode;
-use regex::{Regex, NoExpand};
 use chrono::Local;
 use percent_encoding::{percent_decode};
 use rustls::{NoClientAuth, ServerConfig};
@@ -68,69 +66,6 @@ fn rc(lock: &CONFM) -> RwLockReadGuard<Config> {
 		println!("Hot-reloading the config safely isn't perfect. You should never encounter this error, but if you do, please report it on KatWebX's GitHub.");
 		process::exit(exitcode::SOFTWARE); // If the RwLock manages to get poisoned (which should be impossible), anything which requires access to the config will fail to function properly.
 	})
-}
-
-/* Generate the correct host and path, from raw data.
-Hidden hosts can be virtual-host based (hidden.local) or regex-based.
-Redirects can be either full path based (localhost/redir) or regex-based.
-Reverse proxying can be either virtual-host based (proxy.local) or regex-based. */
-fn handle_path(path: &str, host: &str, auth: &str, c: &Config) -> (String, String, Option<String>) {
-	let mut host = trim_port(host);
-	let hostn = host.to_owned();
-	let auth = &decode(trim_prefix("Basic ", auth)).unwrap_or_else(|_| vec![]);
-	let auth = &*String::from_utf8_lossy(auth); // Decode auth headers, ignoring invalid characters.
-
-	// Prevent the client from accessing data they aren't supposed to access, at the risk of breaking some (very badly designed) clients. A more elegant solution is possible, but it isn't worth implementing.
-	let fp = &[host, path].concat();
-	match path {
-		_ if path.ends_with("/index.html") => return ("./".to_owned(), "redir".to_owned(), None),
-		_ if path.contains("..") => return ("..".to_owned(), "redir".to_owned(), None),
-		_ => (),
-	}
-
-	if c.authx.is_match(fp) {
-		let mut r = "$x";
-		if let Some(regx) = c.authx.matches(fp).iter().next() {r = &c.authx.patterns()[regx]};
-		if let Some(eauth) = c.authmap.get(&["r#", r].concat()) {
-			if auth != eauth {
-				return ("unauth".to_owned(), "redir".to_owned(), None)
-			}
-		}
-	}
-
-	match host {
-		_ if c.redirx.is_match(fp) => {
-			let mut r = "$x";
-			if let Some(regx) = c.redirx.matches(fp).iter().next() {r = &c.redirx.patterns()[regx]}
-			if let Some(link) = c.redirmap.get(&["r#", r].concat()) {return ([link.to_owned(), trim_regex(r, fp)].concat(), "redir".to_owned(), None)}
-		},
-		_ if c.lredir.binary_search(fp).is_ok() => {
-			if let Some(link) = c.redirmap.get(fp) {return (link.to_owned(), "redir".to_owned(), None)}
-		},
-		_ if c.proxyx.is_match(fp) => {
-			let mut r = "$x";
-			if let Some(regx) = c.proxyx.matches(fp).iter().next() {r = &c.proxyx.patterns()[regx]}
-			if let Some(link) = c.proxymap.get(&["r#", r].concat()) {return ([link.to_owned(), trim_regex(r, fp)].concat(), "proxy".to_owned(), None)}
-		},
-		_ if c.lproxy.binary_search(&hostn).is_ok() => {
-			if let Some(link) = c.proxymap.get(host) {return ([link, path].concat(), "proxy".to_owned(), None)}
-		},
-		_ if c.hidden.binary_search(&hostn).is_ok() => host = "html",
-		_ if c.hiddenx.is_match(&hostn) => host = "html",
-		_ if host.is_empty() || &host[..1] == "." || host.contains('/') || host.contains('\\') => host = "html",
-		_ if !Path::new(&hostn).exists() => host = "html",
-		_ => (),
-	};
-
-	let pathn;
-	if path.ends_with('/') {
-		pathn = [path, "index.html"].concat()
-	} else {
-		pathn = path.to_owned()
-	}
-	let full_path = [host, &*pathn].concat();
-
-	(pathn, host.to_owned(), Some(full_path))
 }
 
 /* Reverse proxy a request, passing through any compression.
@@ -161,19 +96,19 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 		Error::from(ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server."))
 		//Error::from(_err) // This should only be uncommented when debugging potential issues with KatWebX. In the future, KatWebX will implement more detailed error messages.
 	}).map(|resp| {
-			HttpResponse::Ok()
-				.status(resp.status())
-				.if_true(true, |req| {
-					for (key, value) in resp.headers().iter() {
-						match key.as_str() {
-							"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "transfer-encoding" | "upgrade" => (),
-							"content-encoding" => {req.header(key.to_owned(), value.to_owned()); req.encoding(ContentEncoding::Identity);},
-							_ => {req.header(key.to_owned(), value.to_owned());}, // Make sure compressed data doesn't get recompressed.
-						}
+		HttpResponse::Ok()
+			.status(resp.status())
+			.if_true(true, |req| {
+				for (key, value) in resp.headers().iter() {
+					match key.as_str() {
+						"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "transfer-encoding" | "upgrade" => (),
+						"content-encoding" => {req.header(key.to_owned(), value.to_owned()); req.encoding(ContentEncoding::Identity);},
+						_ => {req.header(key.to_owned(), value.to_owned());}, // Make sure compressed data doesn't get recompressed.
 					}
-				})
-				.streaming(resp)
-		}))
+				}
+			})
+			.streaming(resp)
+	}))
 }
 
 // Trim the port from an IPv4 address, IPv6 address, or domain:port.
@@ -206,26 +141,12 @@ fn trim_host(path: &str) -> &str {
 	}
 }
 
-// Trim a substring (prefix) from the beginning of a string.
-fn trim_prefix<'a>(prefix: &'a str, root: &'a str) -> &'a str {
-	match root.find(prefix) {
-		Some(i) => &root[i+prefix.len()..],
-		None => root,
-	}
-}
-
 // Trim a substring (suffix) from the end of a string.
 fn trim_suffix<'a>(suffix: &'a str, root: &'a str) -> &'a str {
 	match root.rfind(suffix) {
 		Some(i) => &root[..i],
 		None => root,
 	}
-}
-
-// Use regex to trim a string.
-fn trim_regex(regex: &str, root: &str) -> String {
-	let r = Regex::new(regex).unwrap_or_else(|_| Regex::new("$x").unwrap());
-	r.replace_all(root, NoExpand("")).to_string()
 }
 
 // Open both a file, and the file's metadata.
@@ -341,7 +262,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 	let rawpath = &percent_decode(req.path().as_bytes()).decode_utf8_lossy();
 	let conn_info = req.connection_info();
 
-	let (path, host, fp) = handle_path(rawpath, conn_info.host(), req.headers().get(header::AUTHORIZATION).unwrap_or(&BLANKHEAD).to_str().unwrap_or(""), &conf);
+	let (path, host, fp) = conf.handle_path(rawpath, conn_info.host(), req.headers().get(header::AUTHORIZATION).unwrap_or(&BLANKHEAD).to_str().unwrap_or(""));
 
 	if host == "redir" {
 		if path == "unauth" {
@@ -360,10 +281,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 
 		log_data(&conf.log_format, 200, "WebProxy", &req, &conn_info, None);
 		if req.headers().get(header::UPGRADE).unwrap_or(&BLANKHEAD).to_str().unwrap_or("") == "websocket" {
-			// Actix-web 1.0's websocket stuff isn't ready for our use yet, so we'll have to wait a bit before we can implement this.
-			// You can read more about the issues with actix-web 1.0's websocket APIs from the links below. Once the websocket API is well doccumented, I will implement websocket support into KatWebX as soon as I can.
-			// https://github.com/actix/examples/issues/123
-			// https://github.com/actix/actix-web/issues/829
+			// Actix-web 1.0's websocket stuff isn't ready for our use yet. The API is confusing and undocumented, making usage extremely difficult. I am trying to figure out how to use the API, but it's unlikely I'll be able to implement websocket support into KatWebX until the actix-web's websocket API becomes better documented.
 			/*if let Ok(resp) = ws::start(WsProxy::new(&path, conf.websocket_timeout), &req, body) {
 				return Either::A(resp)
 			} else {*/
@@ -600,9 +518,9 @@ fn main() {
 }
 
 // Unit tests for critical internal functions. These will likely be expanded in the future, as they only cover a tiny portion of the total codebase.
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests {
-	use {config, handle_path, trim_port, trim_host, trim_prefix, trim_suffix, trim_regex};
+	use {config, trim_port, trim_host, trim_prefix, trim_suffix, trim_regex};
 	fn default_conf() -> config::Config {
 		config::Config::load_config(config::TEST_CONFIG.to_owned(), false)
 	}
@@ -681,4 +599,4 @@ mod tests {
 		assert_eq!(handle_path("/demopass/", "localhost", "YWRtaW46aW5jb3JyZWN0cGFzc3dk", &tconf), ("unauth".to_owned(), "redir".to_owned(), None));
 		assert_eq!(handle_path("/demopass/", "localhost", "", &tconf), ("unauth".to_owned(), "redir".to_owned(), None));
 	}
-}
+}*/
