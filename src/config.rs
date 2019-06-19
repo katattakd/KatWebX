@@ -7,6 +7,7 @@ extern crate exitcode;
 extern crate base64;
 use std::{collections::HashMap, fs, process, path::Path};
 use regex::{RegexSet, Regex, NoExpand};
+use trim_prefix;
 
 // ConfStruct objects are used for parsing the configuration, and aren't used for KatWebX's internal routing. KatWebX uses the Config object for storing and accessing the parsed content.
 #[derive(Clone, Deserialize)]
@@ -211,29 +212,29 @@ impl Config {
 	- If a reverse proxy is set, "proxy" will be returned as the host, and the URL to proxy will be returned as the path.
 	- If a normal file is being served, an optional full path (host+path) will be returned, along with the path and host.*/
 	pub fn handle_path(&self, path: &str, host: &str, auth: &str) -> (String, String, Option<String>) {
-	let mut host = trim_port(host);
-	let hostn = host.to_owned();
+		let mut host = trim_port(host);
+		let hostn = host.to_owned();
 
-	// Prevent the client from accessing data they aren't supposed to access, at the risk of breaking some (very badly designed) clients. A more elegant solution is possible, but it isn't worth implementing, as no popular clients are anywhere near this broken.
-	let fp = &[host, path].concat();
-	match path {
-		_ if path.ends_with("/index.html") => return ("./".to_owned(), "redir".to_owned(), None),
-		_ if path.contains("..") => return ("..".to_owned(), "redir".to_owned(), None),
-		_ => (),
-	}
+		// Prevent the client from accessing data they aren't supposed to access, at the risk of breaking some (very badly designed) clients. A more elegant solution is possible, but it isn't worth implementing, as no popular clients are anywhere near this broken.
+		let fp = &[host, path].concat();
+		match path {
+			_ if path.ends_with("/index.html") => return ("./".to_owned(), "redir".to_owned(), None),
+			_ if path.contains("..") => return ("..".to_owned(), "redir".to_owned(), None),
+			_ => (),
+		}
 
-	/* Check if the path is protected by HTTP authentication. If checking path authentication fails (due to either a badly formatted config or a bad Config object), act as if the endpoint doesn't have authentication.
-	If it is protected, check if the auth input matches the correct login, and return if it is incorrect. */
-	if self.authx.is_match(fp) {
-		if let Some(regx) = self.authx.matches(fp).iter().next() {
-			if let Some(eauth) = self.authmap.get(&["r#", &self.authx.patterns()[regx]].concat()) {
-				let mut authx = trim_prefix("Basic ", auth);
-				if authx != eauth {
-					return ("unauth".to_owned(), "redir".to_owned(), None)
+		/* Check if the path is protected by HTTP authentication. If checking path authentication fails (due to either a badly formatted config or a bad Config object), act as if the endpoint doesn't have authentication.
+		If it is protected, check if the auth input matches the correct login, and return if it is incorrect. */
+		if self.authx.is_match(fp) {
+			if let Some(regx) = self.authx.matches(fp).iter().next() {
+				if let Some(eauth) = self.authmap.get(&["r#", &self.authx.patterns()[regx]].concat()) {
+					let mut authx = trim_prefix("Basic ", auth);
+					if authx != eauth {
+						return ("unauth".to_owned(), "redir".to_owned(), None)
+					}
 				}
 			}
 		}
-	}
 
 	// Check if a path has redirects set, and then return the redirects if they are present. If a regex redirect is set, trim matching content from the path, and then add the non-matching content to the redirect destination. 
 	if self.redirx.is_match(fp) {
@@ -297,14 +298,6 @@ fn trim_port(path: &str) -> &str {
 	}
 }
 
-// Trim a substring (prefix) from the beginning of a string.
-fn trim_prefix<'a>(prefix: &'a str, root: &'a str) -> &'a str {
-	match root.find(prefix) {
-		Some(i) => &root[i+prefix.len()..],
-		None => root,
-	}
-}
-
 // Use regex to trim a string.
 fn trim_regex(regex: &str, root: &str) -> String {
 	let r = Regex::new(regex).unwrap_or_else(|_| Regex::new("$x").unwrap());
@@ -355,7 +348,7 @@ pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Default Configurati
 #copy_chunk_size = 65536
 
 # prefer_chacha_poly makes the server prefer using the CHACHA20_POLY1305_SHA256 ciphersuite, instead of using the ciphersuites that the client prefers (usually AES).
-# On CPUs which don't support AES-NI (some very old x86 and oldish ARM CPUs), this can give a ~7x speedup. This should be left disabled on CPUs supporting AES-NI, as it can cut peformance in half.
+# On CPUs which don't support AES-NI (some very old x86 and most non-x86 CPUs), this can give a ~7x speedup. This should be left disabled on CPUs supporting AES-NI, as it can cut peformance in half.
 #prefer_chacha_poly = false
 
 # log_format controls the format used for logging requests.

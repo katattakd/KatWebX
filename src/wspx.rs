@@ -1,20 +1,22 @@
 // Wspx.rs handles websocket proxying.
-/*extern crate actix;
+extern crate actix;
 extern crate actix_web;
 extern crate futures;
 extern crate bytes;
 
 use trim_prefix;
-use actix::{Actor, Context, Handler, Arbiter, Message, StreamHandler};
-use actix_codec::Framed;
+use actix::{Actor, ActorContext, AsyncContext, Context, Handler, Arbiter, Message, StreamHandler, System, io::SinkWrite};
+use actix_codec::{AsyncRead, AsyncWrite, Framed};
 use actix_web_actors::ws;
-use actix_web::{client::Client, Error, http::StatusCode};
-use actix_http::ws::{Codec, ProtocolError};
+use actix_web::{client::Client};
+use actix_http::ws::{Codec, Frame, ProtocolError};
 use bytes::Bytes;
-use futures::{Future, Stream, stream::{SplitSink, SplitStream}};
+use futures::{Future, Stream, stream::SplitSink};
 use std::{thread, sync::mpsc::{Receiver, Sender, channel}, time::{Duration, Instant}};
 
-struct WsClient(SplitSink, SplitStream, Instant, u64);
+struct WsClient<T>(SinkWrite<SplitSink<Framed<T, Codec>>>, Sender<ClientCommand>, Instant, u64)
+where
+    T: AsyncRead + AsyncWrite;
 
 #[derive(Message)]
 enum ClientCommand {
@@ -24,54 +26,77 @@ enum ClientCommand {
 	Pong(String),
 }
 
-impl Actor for WsClient {
+impl<T: 'static> Actor for WsClient<T>
+where
+    T: AsyncRead + AsyncWrite,
+{
     type Context = Context<Self>;
     fn started(&mut self, ctx: &mut Context<Self>) {
         self.hb(ctx)
     }
-    fn stopped(&mut self, ctx: &mut Context<Self>) {
-        ctx.stop();
+    fn stopped(&mut self, _: &mut Context<Self>) {
+        System::current().stop();
     }
 }
 
-impl WsClient {
+impl<T: 'static> WsClient<T>
+where
+    T: AsyncRead + AsyncWrite,
+{
 	fn hb(&self, ctx: &mut Context<Self>) {
-		ctx.run_interval(Duration::from_secs(5), |act, _ctx| {
+		ctx.run_later(Duration::from_secs(5), |act, ctx| {
 			if Instant::now().duration_since(act.2) > Duration::from_secs(act.3) {
-				act.0.close(None);
+				act.0.close();
 				return;
 			}
+			act.hb(ctx)
 		});
 	}
 }
 
-impl Handler<ClientCommand> for WsClient {
+impl<T: 'static> Handler<ClientCommand> for WsClient<T>
+where
+    T: AsyncRead + AsyncWrite,
+{
     type Result = ();
 
     fn handle(&mut self, msg: ClientCommand, _ctx: &mut Context<Self>) {
 		match msg {
-			ClientCommand::Str(text) => {self.0.text(text)},
-			ClientCommand::Bin(bin) => {self.0.binary(bin)},
-			ClientCommand::Ping(msg) => {self.0.ping(&msg)},
-			ClientCommand::Pong(msg) => {self.0.pong(&msg)},
+			ClientCommand::Str(text) => {let _ = self.0.write(ws::Message::Text(text));},
+			ClientCommand::Bin(bin) => {let _ = self.0.write(ws::Message::Binary(bin));},
+			ClientCommand::Ping(msg) => {let _ = self.0.write(ws::Message::Ping(msg));},
+			ClientCommand::Pong(msg) => {let _ = self.0.write(ws::Message::Pong(msg));},
 		}
     }
 }
 
-impl StreamHandler<Message, ProtocolError> for WsClient {
-    fn handle(&mut self, msg: Message, ctx: &mut Self::Context) {
+impl<T: 'static> StreamHandler<Frame, ProtocolError> for WsClient<T>
+where
+    T: AsyncRead + AsyncWrite,
+{
+    fn handle(&mut self, msg: Frame, ctx: &mut Context<Self>) {
 		match msg {
-			Message::Ping(msg) => {
+			Frame::Ping(msg) => {
 				let _ = self.1.send(ClientCommand::Ping(msg));
 				self.2 = Instant::now();
 			}
-			Message::Pong(msg) => {
+			Frame::Pong(msg) => {
 				let _ = self.1.send(ClientCommand::Pong(msg));
 				self.2 = Instant::now();
 			}
-			Message::Text(text) => {let _ = self.1.send(ClientCommand::Str(text));},
-			Message::Binary(bin) => {let _ = self.1.send(ClientCommand::Bin(bin));},
-			Message::Close(_) => {
+			Frame::Text(text) => {
+				let _ = self.1.send(
+					ClientCommand::Str(
+						String::from_utf8_lossy(Bytes::from(text.unwrap()).as_ref()).into_owned()
+					)
+				);
+			},
+			Frame::Binary(bin) => {
+				let _ = self.1.send(
+					ClientCommand::Bin(Bytes::from(bin.unwrap()))
+				);
+			},
+			Frame::Close(_) => {
 				ctx.stop();
 			}
 		}
@@ -104,12 +129,12 @@ impl WsProxy {
 
 		Arbiter::spawn(
 			Client::new().ws(["ws", trim_prefix("http", path)].concat()).connect()
-				.map_err(|e| {println!("{:?}", e)})
-				.map(|(_, framed)| {
-					let (Sink, Stream) = framed.split();
+				.map_err(|e| {println!("{:?}", e);})
+				.map(move |(_response, framed)| {
+					let (sink, stream) = framed.split();
 					let addr = WsClient::create(move |ctx| {
-						WsClient::add_stream(Stream, ctx);
-						WsClient(Sink, Stream, Instant::now(), timeout)
+						WsClient::add_stream(stream, ctx);
+						WsClient(SinkWrite::new(sink, ctx), sender2, Instant::now(), timeout)
 					});
 					thread::spawn(move || {
 						for cmd in receiver1.iter() {
@@ -151,24 +176,33 @@ impl WsProxy {
 
 impl StreamHandler<ws::Message, ws::ProtocolError> for WsProxy {
 	fn handle(&mut self, msg: ws::Message, ctx: &mut Self::Context) {
-        match msg {
-            Message::Ping(msg) => {
+		match msg {
+			ws::Message::Ping(msg) => {
 				let _ = self.send.send(ClientCommand::Ping(msg));
-                self.hb = Instant::now();
-            }
-            Message::Pong(msg) => {
+				self.hb = Instant::now();
+			}
+			ws::Message::Pong(msg) => {
 				let _ = self.send.send(ClientCommand::Pong(msg));
-                self.hb = Instant::now();
-            }
-            Message::Text(text) => {let _ = self.send.send(ClientCommand::Str(text));},
-            Message::Binary(bin) => {let _ = self.send.send(ClientCommand::Bin(bin));},
-            Message::Close(_) => {
-                ctx.stop();
-            }
-        }
-    }
+				self.hb = Instant::now();
+			}
+			ws::Message::Text(text) => {
+				let _ = self.send.send(ClientCommand::Str(text));
+			},
+			ws::Message::Binary(bin) => {
+				let _ = self.send.send(ClientCommand::Bin(bin));
+			},
+			ws::Message::Close(_) => {
+				ctx.stop();
+			}
+			ws::Message::Nop => (),
+		}
+	}
 
 	fn finished(&mut self, ctx: &mut Self::Context) {
 		ctx.stop()
 	}
-}*/
+}
+
+impl<T: 'static> actix::io::WriteHandler<ProtocolError> for WsClient<T> where
+    T: AsyncRead + AsyncWrite
+{}

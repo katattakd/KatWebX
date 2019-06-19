@@ -19,9 +19,9 @@ extern crate signal_hook;
 extern crate rustls;
 extern crate futures;
 extern crate actix;
-//extern crate actix_codec;
+extern crate actix_codec;
 extern crate actix_web;
-//extern crate actix_web_actors;
+extern crate actix_web_actors;
 extern crate actix_http;
 extern crate actix_server;
 extern crate mime_guess;
@@ -36,14 +36,14 @@ mod stream;
 mod ui;
 mod config;
 use config::Config;
-/*mod wspx;
-use wspx::WsProxy;*/
+mod wspx;
+use wspx::WsProxy;
 mod certs;
 use actix::System;
 use futures::Future;
 use actix_http::body::BodyStream;
 use actix_web::{web, web::Payload, Either, HttpServer, client::ClientBuilder, App, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, Error, middleware::BodyEncoding, dev::{Body, ConnectionInfo}};
-//use actix_web_actors::ws;
+use actix_web_actors::ws;
 use std::{env, process, fs, string::String, fs::File, path::Path, time::Duration, sync::{Arc, RwLock, RwLockReadGuard}, ffi::OsStr, thread};
 use bytes::Bytes;
 use chrono::Local;
@@ -138,6 +138,14 @@ fn trim_host(path: &str) -> &str {
 	match path.rfind(':') {
 		Some(i) => &path[i..],
 		None => "",
+	}
+}
+
+// Trim a substring (prefix) from the beginning of a string.
+fn trim_prefix<'a>(prefix: &'a str, root: &'a str) -> &'a str {
+	match root.find(prefix) {
+		Some(i) => &root[i+prefix.len()..],
+		None => root,
 	}
 }
 
@@ -281,12 +289,13 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 
 		log_data(&conf.log_format, 200, "WebProxy", &req, &conn_info, None);
 		if req.headers().get(header::UPGRADE).unwrap_or(&BLANKHEAD).to_str().unwrap_or("") == "websocket" {
-			// Actix-web 1.0's websocket stuff isn't ready for our use yet. The API is confusing and undocumented, making usage extremely difficult. I am trying to figure out how to use the API, but it's unlikely I'll be able to implement websocket support into KatWebX until the actix-web's websocket API becomes better documented.
-			/*if let Ok(resp) = ws::start(WsProxy::new(&path, conf.websocket_timeout), &req, body) {
+			// Actix-web 1.0's websocket stuff isn't ready for our use yet. The API is confusing and undocumented, making usage extremely difficult. I am trying to figure out how to use the API, but it's unlikely I'll be able to implement websocket support into KatWebX until actix-web's websocket API becomes better documented.
+			if let Ok(resp) = ws::start(WsProxy::new(&path, conf.websocket_timeout), &req, body) {
 				return Either::A(resp)
-			} else {*/
+			} else {
 				return Either::A(ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server."))
-			//}
+			}
+			//return Either::A(ws::start(WsProxy::new(&path, conf.websocket_timeout), &req, body).unwrap())
 		}
 		return Either::B(proxy_request(&path, req.method().to_owned(), req.headers(), body, conn_info.remote().unwrap_or("127.0.0.1"), &conf))
 	}

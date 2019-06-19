@@ -44,8 +44,8 @@ serde_derive = "1.0.92"
 
 # The libraires below should always use the lastest version whenever possible.
 rustls = ">=0.15.2"
-#actix-codec = ">=0.1.2"
-#actix-web-actors = ">=1.0.0"
+actix-codec = ">=0.1.2"
+actix-web-actors = ">=1.0.0"
 openssl = { version = ">=0.10.23", features = ["vendored"] }
 actix-web = { version = ">=1.0.0", default-features = false, features = ["client",  "flate2-rust", "rust-tls"] }
 actix-http = { version = ">=0.2.3", default-features = false, features = ["brotli", "flate2-rust", "ssl"] }
@@ -56,7 +56,6 @@ listenfd = "=0.3.3"
 signal-hook = "=0.1.9"
 
 [profile.dev]
-opt-level = 1
 rpath = true
 
 [profile.release]
