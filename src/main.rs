@@ -92,7 +92,7 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 		.set_header_if_none(header::ACCEPT_ENCODING, "none");
 
 	let smaller_default = c.smaller_default;
-	
+
 	Box::new(req.send_stream(body).map_err(move |_err| {
 		// The only SendRequestError that could be caused by a user would be InvalidUrl, but we already do URL checking. All possible SendRequestErrors can't be caused by a client issue, only a server-side one.
 		Error::from(ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server.", smaller_default))
@@ -104,8 +104,8 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 				for (key, value) in resp.headers().iter() {
 					match key.as_str() {
 						"connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" | "transfer-encoding" | "upgrade" => (),
-						"content-encoding" => {req.header(key.to_owned(), value.to_owned()); req.encoding(ContentEncoding::Identity);},
-						_ => {req.header(key.to_owned(), value.to_owned());}, // Make sure compressed data doesn't get recompressed.
+						"content-encoding" => {req.header(key.to_owned(), value.to_owned()); req.encoding(ContentEncoding::Identity);}, // Make sure compressed data doesn't get recompressed.
+						_ => {req.header(key.to_owned(), value.to_owned());},
 					}
 				}
 			})

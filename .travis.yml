@@ -27,7 +27,7 @@ matrix:
     #- env: TARGET=i686-apple-darwin <- backtrace-sys won't build, missing libraries
       #os: osx
     - env: TARGET=x86_64-apple-darwin # Not building locally, but building in CI? I should probably look into why this is happening.
-      #os: osx
+      os: osx
     #- env: TARGET=i686-unknown-freebsd DISABLE_TESTS=1 <- language-tags won't build, image too outdated
     # - env: TARGET=x86_64-unknown-freebsd DISABLE_TESTS=1 <- OpenSSL won't build, image too outdated.
     #- env: TARGET=x86_64-unknown-netbsd DISABLE_TESTS=1 <- OpenSSL won't build, image too outdated
