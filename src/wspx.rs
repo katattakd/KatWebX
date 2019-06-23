@@ -4,11 +4,10 @@ extern crate actix_web;
 extern crate futures;
 extern crate bytes;
 
-use trim_prefix;
 use actix::{Actor, ActorContext, AsyncContext, Context, Handler, Arbiter, Message, StreamHandler, System, io::SinkWrite};
 use actix_codec::{AsyncRead, AsyncWrite, Framed};
 use actix_web_actors::ws;
-use actix_web::{client::Client};
+use actix_web::{client::Client, http::header, http::header::HeaderMap};
 use actix_http::ws::{Codec, Frame, ProtocolError};
 use bytes::Bytes;
 use futures::{Future, Stream, stream::SplitSink};
@@ -123,13 +122,35 @@ impl Actor for WsProxy {
 }
 
 impl WsProxy {
-	pub fn new(path: &str, timeout: u64) -> Self {
+	pub fn new(path: &str, timeout: u64, headers: &HeaderMap, client_ip: &str) -> Self {
 		let (sender1, receiver1) = channel();
 		let (sender2, receiver2) = channel();
 
+		let mut req = Client::new().ws(path);
+
+		for (key, value) in headers.iter() {
+			match key.as_str() {
+				"accept-encoding" | "connection" | "proxy-connection" | "host" | "keep-alive" | "proxy-authenticate" | "sec-websocket-extensions" | "sec-websocket-key" | "sec-webwocket-version" | "proxy-authorization" | "transfer-encoding" | "upgrade" => (),
+				"x-forwarded-for" => {
+					req = req.set_header("X-Forwarded-For", [value.to_str().unwrap_or("127.0.0.1"), ", ", client_ip].concat());
+					continue
+				},
+				_ => {
+					req = req.header(key.to_owned(), value.to_owned());
+					continue
+				},
+			};
+		}
+		req = req.set_header_if_none(header::USER_AGENT, "KatWebX-Proxy")
+			.set_header_if_none("X-Forwarded-For", client_ip)
+			.set_header_if_none(header::CONNECTION, "upgrade")
+			.set_header_if_none(header::UPGRADE, "websocket");
+
+		println!("{:?}", req);	
+
 		Arbiter::spawn(
-			Client::new().ws(["ws", trim_prefix("http", path)].concat()).connect()
-				.map_err(|e| {println!("{:?}", e);})
+			req.connect()
+				.map_err(|e| {println!("wserr{:?}", e);})
 				.map(move |(_response, framed)| {
 					let (sink, stream) = framed.split();
 					let addr = WsClient::create(move |ctx| {

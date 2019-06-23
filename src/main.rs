@@ -72,10 +72,7 @@ fn rc(lock: &CONFM) -> RwLockReadGuard<Config> {
 Hop-by-hop headers are removed, to allow connection reuse. */
 fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload, client_ip: &str, c: &Config) -> Box<Future<Item=HttpResponse, Error=Error>> {
 	let mut req = ClientBuilder::new().timeout(Duration::from_secs(c.stream_timeout as u64))
-		.max_redirects(5).finish().request(method, path).no_decompress()
-		.set_header_if_none("X-Forwarded-For", client_ip)
-		.set_header_if_none(header::ACCEPT_ENCODING, "none")
-		.set_header_if_none(header::USER_AGENT, "KatWebX-Proxy");
+		.max_redirects(5).finish().request(method, path).no_decompress();
 
 	for (key, value) in headers.iter() {
 		match key.as_str() {
@@ -90,6 +87,9 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 			},
 		};
 	}
+	req = req.set_header_if_none(header::USER_AGENT, "KatWebX-Proxy")
+		.set_header_if_none("X-Forwarded-For", client_ip)
+		.set_header_if_none(header::ACCEPT_ENCODING, "none");
 
 	Box::new(req.send_stream(body).map_err(|_err| {
 		// The only SendRequestError that could be caused by a user would be InvalidUrl, but we already do URL checking. All possible SendRequestErrors can't be caused by a client issue, only a server-side one.
@@ -290,7 +290,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 		log_data(&conf.log_format, 200, "WebProxy", &req, &conn_info, None);
 		if req.headers().get(header::UPGRADE).unwrap_or(&BLANKHEAD).to_str().unwrap_or("") == "websocket" {
 			// Actix-web 1.0's websocket stuff isn't ready for our use yet. The API is confusing and undocumented, making usage extremely difficult. I am trying to figure out how to use the API, but it's unlikely I'll be able to implement websocket support into KatWebX until actix-web's websocket API becomes better documented.
-			if let Ok(resp) = ws::start(WsProxy::new(&path, conf.websocket_timeout), &req, body) {
+			if let Ok(resp) = ws::start(WsProxy::new(&path, conf.websocket_timeout, req.headers(), conn_info.remote().unwrap_or("127.0.0.1")), &req, body) {
 				return Either::A(resp)
 			} else {
 				return Either::A(ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server."))
