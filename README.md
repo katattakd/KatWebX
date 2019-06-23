@@ -2,7 +2,7 @@
 An extremely fast static web-server and reverse proxy for the modern web. More info is available on [KatWebX.kittyhacker101.tk](https://katwebx.kittyhacker101.tk/).
 
 ## Important Info
-KatWebX is still a work in progress, and you may encounter issues. **KatWebX is not well tested, production use is not recommended!**  If you need something which will is well tested and can be used in production, check out [KatWeb](https://github.com/kittyhacker101/KatWeb) instead.
+KatWebX is still a work in progress, and you may encounter issues. **KatWebX is not well tested, production use is not recommended!**  Some releases are more stable than others, anything from the releases page is likely to be far more stable than the current code in the git repository. 
 
 Interested in the project? You can help fund KatWebX's development by donating to the Bitcoin address `1KyggZGHF4BfHoHEXxoGzDmLmcGLaHN2x2`.
 
