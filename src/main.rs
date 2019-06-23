@@ -91,9 +91,11 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 		.set_header_if_none("X-Forwarded-For", client_ip)
 		.set_header_if_none(header::ACCEPT_ENCODING, "none");
 
-	Box::new(req.send_stream(body).map_err(|_err| {
+	let smaller_default = c.smaller_default;
+	
+	Box::new(req.send_stream(body).map_err(move |_err| {
 		// The only SendRequestError that could be caused by a user would be InvalidUrl, but we already do URL checking. All possible SendRequestErrors can't be caused by a client issue, only a server-side one.
-		Error::from(ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server."))
+		Error::from(ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server.", smaller_default))
 		//Error::from(_err) // This should only be uncommented when debugging potential issues with KatWebX. In the future, KatWebX will implement more detailed error messages.
 	}).map(|resp| {
 		HttpResponse::Ok()
@@ -275,7 +277,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 	if host == "redir" {
 		if path == "unauth" {
 			log_data(&conf.log_format, 401, "WebUnAuth", &req, &conn_info, None);
-			return Either::A(ui::http_error(StatusCode::UNAUTHORIZED, "401 Unauthorized", "Valid credentials are required to acccess this resource."))
+			return Either::A(ui::http_error(StatusCode::UNAUTHORIZED, "401 Unauthorized", "Valid credentials are required to acccess this resource.", conf.smaller_default))
 		}
 		log_data(&conf.log_format, 301, "WebRedir", &req, &conn_info, None);
 		return Either::A(redir(&path));
@@ -293,7 +295,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 			if let Ok(resp) = ws::start(WsProxy::new(&path, conf.websocket_timeout, req.headers(), conn_info.remote().unwrap_or("127.0.0.1")), &req, body) {
 				return Either::A(resp)
 			} else {
-				return Either::A(ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server."))
+				return Either::A(ui::http_error(StatusCode::BAD_GATEWAY, "502 Bad Gateway", "The server was acting as a proxy and received an invalid response from the upstream server.", conf.smaller_default))
 			}
 			//return Either::A(ws::start(WsProxy::new(&path, conf.websocket_timeout), &req, body).unwrap())
 		}
@@ -302,7 +304,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 
 	if req.method() != Method::GET && req.method() != Method::HEAD {
 		log_data(&conf.log_format, 405, "WebBadMethod", &req, &conn_info, None);
-		return Either::A(ui::http_error(StatusCode::METHOD_NOT_ALLOWED, "405 Method Not Allowed", "Only GET and HEAD methods are supported."))
+		return Either::A(ui::http_error(StatusCode::METHOD_NOT_ALLOWED, "405 Method Not Allowed", "Only GET and HEAD methods are supported.", conf.smaller_default))
 	}
 
 	let mut full_path = match fp {
@@ -326,13 +328,13 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 	// Open the file specified in full_path. If the file is not present, serve either a directory listing or an error.
 	let (f, finfo);
 	if let Ok((fi, m)) = open_meta(&full_path) {f = fi; finfo = m} else {
-		if path.ends_with("/index.html") {
+		if path.ends_with("/index.html") && !conf.smaller_default {
 			log_data(&conf.log_format, 200, "WebDir", &req, &conn_info, None);
 			return Either::A(ui::dir_listing(&[&*host, rawpath].concat(), &host))
 		}
 
 		log_data(&conf.log_format, 404, "WebNotFound", &req, &conn_info, None);
-		return Either::A(ui::http_error(StatusCode::NOT_FOUND, "404 Not Found", &["The resource ", rawpath, " could not be found."].concat()));
+		return Either::A(ui::http_error(StatusCode::NOT_FOUND, "404 Not Found", &["The resource ", rawpath, " could not be found."].concat(), conf.smaller_default));
 	}
 
 	if finfo.is_dir() {

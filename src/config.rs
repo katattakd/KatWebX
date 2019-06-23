@@ -38,7 +38,8 @@ struct ConfStructContent {
 	caching_timeout: Option<i64>,
 	compress_files: Option<bool>,
 	hsts: Option<bool>,
-	hide: Option<Vec<String>>
+	hide: Option<Vec<String>>,
+	smaller_default: Option<bool>
 }
 
 #[derive(Clone, Deserialize)]
@@ -78,6 +79,7 @@ pub struct Config {
 	pub cert_folder: String,
 	pub root_folder: String,
 	pub max_streaming_len: u64,
+	pub smaller_default: bool
 }
 
 impl Config {
@@ -202,6 +204,7 @@ impl Config {
 			root_folder: conft.server.root_folder.unwrap_or_else(|| ".".to_owned()),
 			max_streaming_len: conft.server.copy_chunk_size.unwrap_or(65_536),
 			chacha: conft.server.prefer_chacha_poly.unwrap_or(false),
+			smaller_default: conft.content.smaller_default.unwrap_or(false),
 		}
 	}
 
@@ -384,6 +387,10 @@ log_format = "simple"
 # hide specifies a list of folders which can't be used to serve content. This field supports regex.
 # Note that the certificate folder is automatically included in this, and folders starting with "." are always ignored.
 hide = ["src", "target"]
+
+# smaller_default tells the server to generate smaller error pages, and prevents the server from generating file listings of folders that do not contain an index file.
+# This can make your server slightly more secure, but it is not necessary for the vast majority of deployments.
+#smaller_default = false
 
 
 #[[proxy]] # HTTP reverse proxy
