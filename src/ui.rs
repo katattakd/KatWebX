@@ -32,10 +32,14 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 				return http_error(StatusCode::NOT_FOUND, "500 Internal Server Error", "An unexpected condition was encountered.", false)
 			}
 		}
+		let mut namep = fstr.to_string_lossy()[trim.len()..].to_owned();
 		if let Ok(fmeta) = fstr.metadata() {
 			size = fmeta.len();
 			if fmeta.is_dir() {
-				icon = FOLDERSVG
+				icon = FOLDERSVG;
+				namep.push_str("/")
+				// There is a potential bug on Windows systems, that could result in directory redirects not working properly. This is a temporary workaround to this bug.
+				// TODO: Find out if the bug still applies to the newer codebase, and if it does, implement a fix.
 			} else {
 				icon = FILESVG
 			}
@@ -52,7 +56,7 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 			}
 		}
 
-		html = [&html, "<tr><td><a href='", &encode_attribute(fstr.to_string_lossy()[trim.len()..].borrow()), "'>", icon, &encode_minimal(name.borrow()), "</td><td><span>", &sizestr, "</span></a></td></tr>"].concat()
+		html = [&html, "<tr><td><a href='", &encode_attribute(&namep), "'>", icon, &encode_minimal(name.borrow()), "</td><td><span>", &sizestr, "</span></a></td></tr>"].concat()
 	}
 
 	html = [html, "</table><span class=btmright>Powered by KatWebX</span>".to_owned()].concat();
@@ -65,6 +69,8 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 		.body(html)
 }
 
+// http_error generates a server HTTP error page, using the provided data.
+// If the "smaller" option is set to true, the page will be generated using the default sans-serif font, instead of the Product Sans font.
 pub fn http_error(status: StatusCode, header: &str, body: &str, smaller: bool) -> HttpResponse {
 	let head = if smaller {HEADSPL} else {HEAD};
 
@@ -85,10 +91,14 @@ const HEAD: &str = r"<!DOCTYPE HTML><meta content='width=device-width,initial-sc
 // An alternative version of HEAD, with less CSS, and no included font. This will only work with the http_error function.
 const HEADSPL: &str = r"<!DOCTYPE HTML><meta content='width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1' name=viewport><style>body *{margin:0;font:300 32px sans-serif;color:#404040}h1{margin:.2em 0;font-size:60px}svg{height:60px;position:relative;top:8px;right:5px}.err{color:#b42020;fill:#b42020}body{margin:30px 40px}.bottom{display:none}</style>";
 
+// The icon used on server generated error pages.
 const ERRSVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 15h2v2h-2zm0-8h2v6h-2zm1-5a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z" fill="#b42020"/></svg>"##;
 
+// The back icon used on server generated file listings.
 const BACKSVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 9l1 1-3 4h9V4h2v12H9l3 4-1 1-6-6 6-6z" fill="#404040"/></svg>"##;
 
+// The file icon used on server generated file listings.
 const FILESVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.5-4.4H-1.6A2.5 2.5 0 0 0-4.2-2v17.7h2.6V-2h15.1v-2.5zm-1.3 5l7.6 7.6v12.6c0 1.4-1.1 2.5-2.5 2.5H3.4a2.5 2.5 0 0 1-2.5-2.5V3.2C.9 1.8 2 .6 3.4.6h8.8zM11 9.5h7l-7-7v7z"/></svg>"##;
 
+// The folder icon used on server generated file listings.
 const FOLDERSVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="right: 8px"><path d="M20 6h-8l-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2zm0 12H4V8h16v10z"/></svg>"##;
