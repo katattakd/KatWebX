@@ -39,11 +39,11 @@ Approximate dates for the release of KatWebX (and discontinuing of KatWeb) are l
 - Let's Encrypt integration (Difficult but practical to implement, possible in the future)
 - Caching proxy (Currently very difficult to implement, unlikely to be implemented in the near future)
 - Advanced load balancer (May be implemented in the future)
+- Support for more architectures (Likely to be implemented eventually, requires dependencies to be updated)
 
 ## Unlikely features (will not be implemented soon or at all)
 - QUIC support (The underlying HTTP library (actix-web) doesn't support it, and [only 1 browser supports it out of the box](https://en.wikipedia.org/wiki/QUIC#Adoption). Until it gets more adoption, I'm not going to put effort into adding it myself.)
 - CGI/FastCGI support (There are no existing client libraries for Rust, and there's no real reason to implement it anyways. [HTTP/2 can do everything that FastCGI does](https://ef.gy/fastcgi-is-pointless), and KatWebX has an HTTP/2 capable reverse proxy built-in.)
 - SPDY support ([SPDY is dying](https://caniuse.com/#feat=spdy), as it's being replaced by HTTP/2. KatWebX has full support for HTTP/2.)
 - TLS 1.1 or older ([All recent browsers support TLS 1.2 or higher](https://caniuse.com/#feat=tls1-2), and these older TLS protocols are very insecure.)
-- Support for more architectures (The underlying encryption library (Rustls) uses Ring for high-performance encryption, and Ring doesn't compile on many architectures. The only way to work around this would be to switch to a different encryption library, and change all TLS related code. There are currently no existing alternatives to Rustls that meet all of KatWebX's needs.)
 - Documentation in other languages (I don't know any other languages, and I don't have the resources to hire a translator.)
