@@ -8,6 +8,9 @@
 // This issue can't be fixed, due to a limitation of actix-web's API. Actix-web's API doesn't currently allow creating acceptors that use &HttpRequest instead of HttpRequest.
 #![allow(clippy::needless_pass_by_value)]
 
+// TODO: Seperate logging into a seperate file
+// TODO: Seperate more functions into various files, to reduce main file length
+
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]

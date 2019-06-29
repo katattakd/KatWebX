@@ -16,14 +16,15 @@ use self::number_prefix::{NumberPrefix, Standalone, Prefixed, PrefixNames};
 pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 	let f;
 
-	match glob::glob(&[path, "/*"].concat()) {
+	match glob::glob(&[path, "/*"].concat()) { // Get list of all files in directory
 		Ok(fi) => {f = fi},
 		Err(_) => {
 			return http_error(StatusCode::NOT_FOUND, "404 Not Found", &["The resource ", path, " could not be found."].concat(), false)
 		}
 	}
 
-	let mut html = [HEAD, "<title>Directory listing of ", &path[trim.len()..], "</title><h1 class=ok>", FOLDERSVG, "Directory listing of ", &path[trim.len()..], "</h1><table><tr><td><span>Name</span></td><td><span>Size</span></td></tr><tr><td><a href='..'>", BACKSVG, "Back</a></td></tr>"].concat();
+	let mut html = [HEAD, "<title>Directory listing of ", &encode_minimal(&path[trim.len()..]), "</title><h1 class=ok>", FOLDERSVG, "Directory listing of ", &encode_minimal(&path[trim.len()..]), "</h1><table><tr><td><span>Name</span></td><td><span>Size</span></td></tr><tr><td><a href='..'>", BACKSVG, "Back</a></td></tr>"].concat(); // Generate title of directory listing
+
 
 	for fpath in f {
 		let fstr = fpath.unwrap();
