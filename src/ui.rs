@@ -2,19 +2,21 @@
 #![allow(clippy::cast_precision_loss)]
 
 // Ui.rs is responsible for creating all server-generated content (error pages, file listings, etc...)
-// TODO: Fix order of file listing, and cleanup code.
+// TODO: Cleanup code.
 extern crate actix_web;
 extern crate htmlescape;
 extern crate number_prefix;
+extern crate glob;
 use actix_web::{HttpResponse, http::{header, ContentEncoding, StatusCode}, middleware::BodyEncoding};
-use std::{fs, borrow::Borrow};
+use std::borrow::Borrow;
 use self::htmlescape::{encode_minimal, encode_attribute};
 use self::number_prefix::{NumberPrefix, Standalone, Prefixed, PrefixNames};
 
+// dir_listing generates a webpage that lists the contents of a directory.
 pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 	let f;
 
-	match fs::read_dir(path) {
+	match glob::glob(&[path, "/*"].concat()) {
 		Ok(fi) => {f = fi},
 		Err(_) => {
 			return http_error(StatusCode::NOT_FOUND, "404 Not Found", &["The resource ", path, " could not be found."].concat(), false)
@@ -24,7 +26,7 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 	let mut html = [HEAD, "<title>Directory listing of ", &path[trim.len()..], "</title><h1 class=ok>", FOLDERSVG, "Directory listing of ", &path[trim.len()..], "</h1><table><tr><td><span>Name</span></td><td><span>Size</span></td></tr><tr><td><a href='..'>", BACKSVG, "Back</a></td></tr>"].concat();
 
 	for fpath in f {
-		let fstr = fpath.unwrap().path();
+		let fstr = fpath.unwrap();
 		let (name, size, icon);
 		match fstr.file_name() {
 			Some(fst) => {name = fst.to_string_lossy()},
