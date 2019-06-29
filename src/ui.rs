@@ -2,7 +2,6 @@
 #![allow(clippy::cast_precision_loss)]
 
 // Ui.rs is responsible for creating all server-generated content (error pages, file listings, etc...)
-// TODO: Cleanup code.
 extern crate actix_web;
 extern crate htmlescape;
 extern crate number_prefix;
@@ -26,8 +25,8 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 	let mut html = [HEAD, "<title>Directory listing of ", &encode_minimal(&path[trim.len()..]), "</title><h1 class=ok>", FOLDERSVG, "Directory listing of ", &encode_minimal(&path[trim.len()..]), "</h1><table><tr><td><span>Name</span></td><td><span>Size</span></td></tr><tr><td><a href='..'>", BACKSVG, "Back</a></td></tr>"].concat(); // Generate title of directory listing
 
 
-	for fpath in f {
-		let fstr = fpath.unwrap();
+	for fpath in f { // Iterate though file list, and generate listings for all files
+		let fstr = fpath.unwrap(); // TODO: Improve error handling
 		let (name, size, icon);
 		match fstr.file_name() {
 			Some(fst) => {name = fst.to_string_lossy()},
@@ -62,9 +61,8 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 		html = [&html, "<tr><td><a href='", &encode_attribute(&namep), "'>", icon, &encode_minimal(name.borrow()), "</td><td><span>", &sizestr, "</span></a></td></tr>"].concat()
 	}
 
+	// Return file listing page
 	html = [html, "</table><span class=btmright>Powered by KatWebX</span>".to_owned()].concat();
-
-
 	HttpResponse::Ok()
 		.encoding(ContentEncoding::Auto)
 		.header(header::SERVER, "KatWebX")
