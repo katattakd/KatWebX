@@ -8,8 +8,8 @@ Interested in the project? You can help fund KatWebX's development by donating t
 
 ## Release Schedule
 Approximate dates for the release of KatWebX are listed below.
-- July - Pre releases, containing all features being partially or fully implemented. No new features will be added between now and the release, and the codebase will be cleaned up to improve performance and maintainability.
-- August - Evaluation releases, containing all features being fully implemented, and a somewhat performant and readable codebase. No functionality changes will be made between now and the release, only performance optimizations, minor code cleanup, and bug fixes will be implemented at this time.
+- July - Pre releases, containing all features being partially or fully implemented. No new features will be added between now and the release, and the codebase will be cleaned up to improve performance and maintainability. Pre-releases will not be production-ready.
+- August - Evaluation releases, containing all features being fully implemented, and a somewhat performant and readable codebase. No functionality changes will be made between now and the release, only performance optimizations, minor code cleanup, and bug fixes will be implemented at this time. Evaluation releases are intended for testing how well KatWebX functions in a production environment, but they are not intended for use in large-scale deployments or critical systems.
 - September - A fully-functional, production-ready, 1.0 release will be finished and packaged. Additional updates will only add minor functionality changes, focusing mostly on performance improvments and bug fixes.
 
 ## Known issues (as of this document's writing)
