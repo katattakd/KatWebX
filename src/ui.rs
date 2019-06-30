@@ -22,9 +22,9 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 		}
 	}
 
-	let mut html = [HEAD, "<title>Directory listing of ", &encode_minimal(&path[trim.len()..]), "</title><h1 class=ok>", FOLDERSVG, "Directory listing of ", &encode_minimal(&path[trim.len()..]), "</h1><table><tr><td><span>Name</span></td><td><span>Size</span></td></tr><tr><td><a href='..'>", BACKSVG, "Back</a></td></tr>"].concat(); // Generate title of directory listing
+	let html = [HEAD, "<title>Directory listing of ", &encode_minimal(&path[trim.len()..]), "</title><h1 class=ok>", FOLDERSVG, "Directory listing of ", &encode_minimal(&path[trim.len()..]), "</h1><table><tr><td><span>Name</span></td><td><span>Size</span></td></tr><tr><td><a href='..'>", BACKSVG, "Back</a></td></tr>"].concat(); // Generate title of directory listing
 
-
+	let (mut html1, mut html2) = ("".to_owned(), "".to_owned()); // Create two text buffers, one for folders, and one for files.
 	for fpath in f { // Iterate though file list, and generate listings for all files
 		let fstr = fpath.unwrap(); // TODO: Improve error handling
 		let (name, size, icon);
@@ -40,8 +40,6 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 			if fmeta.is_dir() {
 				icon = FOLDERSVG;
 				namep.push_str("/")
-				// There is a potential bug on Windows systems, that could result in directory redirects not working properly. This is a temporary workaround to this bug.
-				// TODO: Find out if the bug still applies to the newer codebase, and if it does, implement a fix.
 			} else {
 				icon = FILESVG
 			}
@@ -56,13 +54,15 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 				Standalone(bytes)   => {sizestr = [bytes.to_string(), "b".to_owned()].concat()}
 				Prefixed(prefix, n) => {sizestr = [&((n*10_f64).round()/10_f64).to_string(), prefix.symbol()].concat()}
 			}
+			html2 = [&html2, "<tr><td><a href='", &encode_attribute(&namep), "'>", icon, &encode_minimal(name.borrow()), "</td><td><span>", &sizestr, "</span></a></td></tr>"].concat();
+			continue
 		}
 
-		html = [&html, "<tr><td><a href='", &encode_attribute(&namep), "'>", icon, &encode_minimal(name.borrow()), "</td><td><span>", &sizestr, "</span></a></td></tr>"].concat()
+		html1 = [&html1, "<tr><td><a href='", &encode_attribute(&namep), "'>", icon, &encode_minimal(name.borrow()), "</td><td><span>", &sizestr, "</span></a></td></tr>"].concat();
 	}
 
 	// Return file listing page
-	html = [html, "</table><span class=btmright>Powered by KatWebX</span>".to_owned()].concat();
+	let html = [html, html1, html2, "</table><span class=btmright>Powered by KatWebX</span>".to_owned()].concat();
 	HttpResponse::Ok()
 		.encoding(ContentEncoding::Auto)
 		.header(header::SERVER, "KatWebX")
