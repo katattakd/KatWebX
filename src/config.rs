@@ -231,7 +231,7 @@ impl Config {
 		if self.authx.is_match(fp) {
 			if let Some(regx) = self.authx.matches(fp).iter().next() {
 				if let Some(eauth) = self.authmap.get(&["r#", &self.authx.patterns()[regx]].concat()) {
-					let mut authx = trim_prefix("Basic ", auth);
+					let authx = trim_prefix("Basic ", auth);
 					if authx != eauth {
 						return ("unauth".to_owned(), "redir".to_owned(), None)
 					}
