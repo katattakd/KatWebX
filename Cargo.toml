@@ -8,6 +8,7 @@ repository = "https://github.com/kittyhacker101/KatWebX"
 authors = ["kittyhacker101 <kittyhacker101@protonmail.com>"]
 description = "A fast static web server and reverse proxy for the modern web. More information is available in the project's GitHub repository."
 categories = ["network-programming", "web-programming::http-server", "web-programming::websocket"]
+edition = "2018"
 
 [badges]
 travis-ci = { repository = "kittyhacker101/KatWebX", branch = "master" }
