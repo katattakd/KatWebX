@@ -57,7 +57,7 @@ listenfd = "=0.3.3"
 signal-hook = "=0.1.9"
 
 [profile.dev]
-rpath = true
+rpath = false
 
 [profile.release]
 lto = true
