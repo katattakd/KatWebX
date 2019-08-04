@@ -47,4 +47,4 @@ Approximate dates for the release of KatWebX are listed below.
 - CGI/FastCGI support (There are no existing client libraries for Rust, and there's no real reason to implement it anyways. [HTTP/2 can do everything that FastCGI does](https://ef.gy/fastcgi-is-pointless), and KatWebX has an HTTP/2 capable reverse proxy built-in.)
 - SPDY support ([SPDY is dying](https://caniuse.com/#feat=spdy), as it's being replaced by HTTP/2. KatWebX has full support for HTTP/2.)
 - TLS 1.1 or older ([All recent browsers support TLS 1.2 or higher](https://caniuse.com/#feat=tls1-2), and these older TLS protocols are very insecure.)
-- Documentation in other languages (I don't know any other languages, and I don't have the resources to hire a translator.)
+- Documentation in other languages (I don't know any other languages, and I don't have the resources to hire a translator.) (iswearibehave-igotthemoooooooo is here for you)
