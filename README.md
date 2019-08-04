@@ -4,7 +4,7 @@ An extremely fast static web-server and reverse proxy for the modern web. More i
 ## Important Info
 KatWebX is still a work in progress, and you may encounter issues. **KatWebX is not well tested, production use is not recommended!**  Some releases are more stable than others, anything from the releases page is likely to be far more stable than the current code in the git repository. 
 
-Interested in the project? You can help fund KatWebX's development by donating to the Bitcoin address `1KyggZGHF4BfHoHEXxoGzDmLmcGLaHN2x2`.
+Interested in the project? You can help fund KatWebX's development by donating to the Bitcoin address `bc1quewuvy0s2ptrvzn88d9uy9qzf7sp9n25ztce43`.
 
 ## Release Schedule
 Approximate dates for the release of KatWebX are listed below.
