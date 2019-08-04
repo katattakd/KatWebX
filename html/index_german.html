@@ -1,0 +1,113 @@
+<!DOCTYPE HTML>
+<head>
+	<meta content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=5" name=viewport>
+	<style>body{font-family:monospace;font-size:16px;line-height:1.5;padding:8px 32px;background-color:#282a36;color:#ddd}code{background-color:#111;padding:0 3px;border-radius:3px;font-size:15px;display:inline-block}h3,strong{font-weight:600}a{color:#8be9fd}@media (min-width:1312px){body{padding:16px;max-width:1280px;margin:8px auto}}@media (max-width:992px){body{padding:0 8px}}</style>
+	<title>KatWebX Demo Seite</title>
+</head>
+<body>
+	<h3>Wilkommen bei KatWebX! (<a href="index.html">Englische Version</a>)</h3>
+	<p>KatWebX ist ein schneller Webserver und Reverse Proxy für das moderne Web. Seine Funktionen sind unten aufgelistet.</p>
+	<ul>
+		<li>Easy to read TOML configuration</li>
+		<li>Flexible configuration parsing</li>
+		<li>Regex-based redirects</li>
+		<li>Compressed regex-based reverse proxy</li>
+		<li>Websocket reverse proxying</li>
+		<li>HTTP basic authentication</li>
+		<li>Fast file serving</li>
+		<li>Brotli file compression</li>
+		<li>Systemd/systemfd socket listening</li>
+		<li>On-the-fly config reloading</li>
+		<li>HSTS support</li>
+		<li>SNI and OCSP reponse stapling</li>
+		<li>High peformance HTTP/2 and TLS 1.3</li>
+		<li>Multiple logging formats</li>
+		<li>Material design server-generated pages</li>
+	</ul>
+	<p>Hier kannst du die Releases und den Source Code von KatWebX herunterladen: <a href="https://github.com/kittyhacker101/KatWebX">github.com/kittyhacker101/KatWebX</a>.</p>
+	<p>Du hast bereits KatWebX? Dann einfach weiterlesen, um zu erfahren, wie du KatWebX richtig konfigurieren kannst.</p>
+
+	<hr>
+	<h3>Ordnerstruktur</h3>
+	<p>Alle Dateien und Ordner, die KatWebX anlegt, befinden sich ausschließlich in einem Ordner. Die Ordnerstruktur ist unten aufgeführt.</p>
+	<ul>
+		<li>/html/ - Default web server root.
+			<ul>
+				<li>/index.html - Root index page.</li>
+			</ul>
+		</li>
+		<li>/[domain]/ - File system root for [domain].
+			<ul>
+				<li>/index.html - Root index page.</li>
+			</ul>
+		</li>
+		<li>/ssl/ - Stores TLS certificates, encryption keys, and OCSP data. The location of this folder can be changed through the use of the server.cert_folder configuration option.
+			<ul>
+				<li>/default.crt - Default TLS certificate.</li>
+				<li>/default.pem - Default certificate key.</li>
+				<li>/default.ocsp - Default OCSP reponse (optional).</li>
+				<li>/[domain].crt - TLS certificate for [domain].</li>
+				<li>/[domain].pem - Certificate key for [domain].</li>
+				<li>/[domain].ocsp - OCSP response for [domain] (optional).</li>
+			</ul>
+		</li>
+		<li>/src/ - Program source code.
+			<ul>
+				<li>/*.rs - Rust source code.</li>
+			</ul>
+		</li>
+		<li>/conf.toml - Global configuration file.</li>
+	</ul>
+
+	<hr>
+	<h3>Globale Konfiguration</h3>
+	<p>Die Globale Konfiguration von KatWebX befindet sich in der Datei /conf.toml. Die Konfiguration sollte größtenteils Ab- und aufwärtskompatibel sein. (Beachte bitte, dass manchmal neue Funktionen hinzugefügt werden).</p>
+	<p>Änderungen an der Datei werden nur nach einem Neustart von KatWebX wirksam. Du kannst die Konfiguration auch über einen Befehl ändern, wie das nachfolgende Beispiel zeigt: <code>./katwebx myconfig.toml</code></p>
+	<p>Eine Kopie der Standartkonfiguration kann <a href="default.toml">hier</a> gefunden werden.</p>
+
+	<hr>
+	<h3>Zertifikate und Schlüsselpaare laden</h3>
+	<p>Um ein Zertifikat und einen Schlüssel zu verwenden, musst du das Zertifikat <code>[domain].crt</code> nennen und den Schlüssel <code>[domain].pem</code>. Das Zertifikat wird automatisch mit SNI erkannt. Falls kein Zertifikat gefunden werden sollte, werden anstatt dessen die Dateien <code>default.crt</code> und <code>default.pem</code> benutzt.</p>
+	<p>Die Schlüsseldatei <strong>muss</strong> im pkcs8-Format vorliegen. Du kannst eine Schlüsseldatei mit diesem Befehl zu pkcs8 konvertieren (benötigt openssl): <code>openssl pkcs8 -topk8 -nocrypt -in oldkey.pem -out newkey.pem</code></p>
+	<hr>
+	<h3>Ein TLS Zertifikat bekommen</h3>
+	<p>Du kannst ein kostenfreies TLS-Zertifikat durch die Nutzung eines ACME-Klienten bekommen, z.B. <a href="https://www.sslforfree.com/">sslforfree.com</a>.</p>
+	<p>Beachte: Es ist empfehlenswert, wenn du dir deinen ECDSA Schlüssel und deine CSR selber generierst. Die meisten ACME-Klienten nutzen RSA anstelle von ECDSA, wodurch die Leistung deines Servers start geschwächt wird.</p>
+
+	<hr>
+	<h3>Verschlüsselte Verbindungen durch HSTS erzwingen.</h3>
+	<p>It's highly recommended that you make all internet-facing sites HTTPS only. To do so, you can enable the <code>content.hsts</code> configuration option. This will automatically redirect all requests to HTTPS, and set an HSTS header, to allow for HSTS preloading. You can then request for your site to be added to the HSTS preload list <a href="https://hstspreload.org/">here</a>.</p>
+	<p>Note: Once you are on the preload list, it is very difficult to get off it. Make sure your site works properly over HTTPS before doing this!</p>
+
+	<hr>
+	<h3>OCSP stapling</h3>
+	<p>KatWebX supports stapling an OCSP response, but it doesn't have a builtin OCSP client. If you split the certificate chain into two files, you can get an OCSP reponse manually using the commands below (requires openssl and bash): <code>URI=$(openssl x509 -noout -ocsp_uri -in server.crt)</code></br><code>openssl ocsp -issuer ca.crt -cert server.crt -url $URI -respout output.ocsp</code></p>
+	<p>You can then apply it to a host by renaming the file to <code>[domain].ocsp</code>. Note that this file must be renewed often (usually every 7 days) to prevent it from expiring.</p>
+
+	<hr>
+	<h3>Socket listening</h3>
+	<p>KatWebX can also listen using unix sockets passed to it, instead of directly binding to an address. The first socket passed to KatWebX will serve HTTP, and the second optional socket passed to KatWebX will serve HTTPS. When using sockets, KatWebX will behave the same as it would if you were binding to a TCP/IP address. You can test out the socket listening using the command below (requires systemfd and katwebx): <code>systemfd -s http::8080 -s https::8181 -- ./katwebx</code></p>
+
+	<hr>
+	<h3>Configuration hot-reloading</h3>
+	<p>On unix systems, KatWebX's configuration can be reloaded at runtime by sending it a SIGHUP signal. This can be done using this command: <code>killall katwebx --signal SIGHUP</code></p>
+	<p>Note that the configuration values server.http_addr, server.tls_addr, server.stream_timeout, server.prefer_chacha_poly, and server.cert_folder can't be changed without a restart of the server. Encryption certificates, keys, and OCSP responses can't be changed without restarting the server.</p>
+
+	<hr>
+	<h3>Peformance optimization</h3>
+	<p>Although KatWebX is designed to be high-peformance, it may need a bit of extra tweaking when under extreme load. Here's some tips on how to improve KatWebX's peformance.</p>
+	<ul>
+		<li>Use the latest version of KatWebX. KatWebX is constantly being optimized, and newer versions can bring noticeable performance improvements (and even if they don't, using outdated releases can put your server's security at risk).</li>
+		<li>Set server.log_format to "minimal" or "none". Disabling logging heavily reduces latency and CPU load.</li>
+		<li>Avoid using regex in the config whenever possible. Heavy use of regex can be extremely intensive.</li>
+		<li>Try keeping files below 64kb in size. Small files can be copied directly into the response, which is ~2x faster than using streaming IO.</li>
+		<li>If you are using RSA key sizes greater than 2048, consider switching to ECDSA instead.</li>
+		<li>Avoid using unknown extensions. When the file extension is unknown, the server has to sniff the MIME type manually, which has a significant peformance impact.</li>
+		<li>Make sure content.compress_files is enabled. This heavily reduces CPU load by pre-compressing files, instead of requiring data to be compressed in realtime.</li>
+		<li>Make sure content.caching_timeout is set to a high value. More client side caching will result in fewer requests to the server.</li>
+	</ul>
+
+	<hr>
+	<p>This page shows the documentation for KatWebX v1.0.0-pre2. The latest documentation for KatWebX can be viewed at <a href="https://katwebx.kittyhacker101.tk/">katwebx.kittyhacker101.tk</a>.</p>
+
+</body>
