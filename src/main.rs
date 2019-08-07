@@ -32,6 +32,7 @@ extern crate chrono;
 extern crate percent_encoding;
 extern crate exitcode;
 mod stream;
+use stream::{trim_prefix, trim_suffix, trim_host, trim_port, open_meta};
 mod ui;
 mod config;
 use config::Config;
@@ -40,7 +41,7 @@ use actix::System;
 use futures::Future;
 use actix_http::body::BodyStream;
 use actix_web::{web, web::Payload, Either, HttpServer, client::ClientBuilder, App, http::{header, header::{HeaderValue, HeaderMap}, Method, ContentEncoding, StatusCode}, HttpRequest, HttpResponse, Error, middleware::BodyEncoding, dev::{Body, ConnectionInfo}};
-use std::{env, process, fs, string::String, fs::File, path::Path, time::Duration, sync::{Arc, RwLock, RwLockReadGuard}, ffi::OsStr, thread};
+use std::{env, process, fs, string::String, path::Path, time::Duration, sync::{Arc, RwLock, RwLockReadGuard}, ffi::OsStr, thread};
 use bytes::Bytes;
 use chrono::Local;
 use percent_encoding::{percent_decode};
@@ -107,59 +108,6 @@ fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload,
 			})
 			.streaming(resp)
 	}))
-}
-
-// Trim the port from an IPv4 address, IPv6 address, or domain:port.
-fn trim_port(path: &str) -> &str {
-	if path.contains('[') && path.contains(']') {
-		match path.rfind("]:") {
-			Some(i) => return &path[..=i],
-			None => return path,
-		};
-	}
-
-	match path.rfind(':') {
-		Some(i) => &path[..i],
-		None => path,
-	}
-}
-
-// Trim the host from an IPv4 address, IPv6 address, or domain:port.
-fn trim_host(path: &str) -> &str {
-	if path.contains('[') && path.contains(']') {
-		match path.rfind("]:") {
-			Some(i) => return &path[i+1..],
-			None => return "",
-		};
-	}
-
-	match path.rfind(':') {
-		Some(i) => &path[i..],
-		None => "",
-	}
-}
-
-// Trim a substring (prefix) from the beginning of a string.
-fn trim_prefix<'a>(prefix: &'a str, root: &'a str) -> &'a str {
-	match root.find(prefix) {
-		Some(i) => &root[i+prefix.len()..],
-		None => root,
-	}
-}
-
-// Trim a substring (suffix) from the end of a string.
-fn trim_suffix<'a>(suffix: &'a str, root: &'a str) -> &'a str {
-	match root.rfind(suffix) {
-		Some(i) => &root[..i],
-		None => root,
-	}
-}
-
-// Open both a file, and the file's metadata.
-fn open_meta(path: &str) -> Result<(fs::File, fs::Metadata), Error> {
-	let f = File::open(path)?;
-	let m =  f.metadata()?;
-	Ok((f, m))
 }
 
 // Do a HTTP permanent redirect.
@@ -513,87 +461,3 @@ fn main() {
 	let _ = sys.run();
 	println!("\n[Info]: Stopping KatWebX...");
 }
-
-// Unit tests for critical internal functions. These will likely be expanded in the future, as they only cover a tiny portion of the total codebase.
-/*#[cfg(test)]
-mod tests {
-	use {config, trim_port, trim_host, trim_prefix, trim_suffix, trim_regex};
-	fn default_conf() -> config::Config {
-		config::Config::load_config(config::TEST_CONFIG.to_owned(), false)
-	}
-	#[test]
-	fn test_trim_port() {
-		assert_eq!(trim_port("127.0.0.1:8080"), "127.0.0.1");
-		assert_eq!(trim_port("127.0.0.1"), "127.0.0.1");
-		assert_eq!(trim_port("[::1]:8081"), "[::1]");
-		assert_eq!(trim_port("[::1]"), "[::1]");
-	}
-	#[test]
-	fn test_trim_host() {
-		assert_eq!(trim_host("127.0.0.1:8080"), ":8080");
-		assert_eq!(trim_host("127.0.0.1"), "");
-		assert_eq!(trim_host("[::1]:8081"), ":8081");
-		assert_eq!(trim_host("[::1]"), "");
-	}
-	#[test]
-	fn test_trim_prefix() {
-		assert_eq!(trim_prefix("str", "string"), "ing");
-		assert_eq!(trim_prefix("no", "string"), "string");
-		assert_eq!(trim_prefix("ing", "string"), "");
-	}
-	#[test]
-	fn test_trim_suffix() {
-		assert_eq!(trim_suffix("ing", "string"), "str");
-		assert_eq!(trim_suffix("no", "string"), "string");
-		assert_eq!(trim_suffix("str", "string"), "");
-	}
-	#[test]
-	fn test_trim_regex() {
-		assert_eq!(trim_regex("no+", "string"), "string");
-		assert_eq!(trim_regex("str", "string"), "ing");
-		assert_eq!(trim_regex("ing", "string"), "str");
-		assert_eq!(trim_regex("rin", "string"), "stg");
-		assert_eq!(trim_regex("\\w", "string"), "");
-		assert_eq!(trim_regex("string[1-9]", "string4"), "");
-	}
-	#[test]
-	fn test_handle_path_base() {
-		let tconf = default_conf();
-		assert_eq!(handle_path("/index.html", "localhost", "", &tconf), ("./".to_owned(), "redir".to_owned(), None));
-		assert_eq!(handle_path("/test/..", "localhost", "", &tconf), ("..".to_owned(), "redir".to_owned(), None));
-
-		assert_eq!(handle_path("/", "H", "", &tconf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
-		assert_eq!(handle_path("/", "...", "", &tconf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
-		assert_eq!(handle_path("/", "/home", "", &tconf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
-		assert_eq!(handle_path("/", "C:\\", "", &tconf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
-
-		assert_eq!(handle_path("/", "ssl", "", &tconf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
-		assert_eq!(handle_path("/", "nonexistenthost", "", &tconf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
-	}
-	#[test]
-	fn test_handle_path_routing() {
-		let tconf = default_conf();
-		assert_eq!(handle_path("/redir", "localhost", "", &tconf), ("https://kittyhacker101.tk".to_owned(), "redir".to_owned(), None));
-		assert_eq!(handle_path("/redir2a", "localhost", "", &tconf), ("https://google.com".to_owned(), "redir".to_owned(), None));
-
-		assert_eq!(handle_path("/links.html", "proxy.local", "", &tconf), ("https://kittyhacker101.tk/links.html".to_owned(), "proxy".to_owned(), None));
-		assert_eq!(handle_path("/proxy0/links.html", "localhost", "", &tconf), ("http://localhost:8081/links.html".to_owned(), "proxy".to_owned(), None));
-
-		assert_eq!(handle_path("/", "src", "", &tconf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
-		assert_eq!(handle_path("/", "target", "", &tconf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
-		assert_eq!(handle_path("/", "html", "", &tconf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
-
-		assert_eq!(handle_path("/", "html", "", &tconf), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
-
-		assert_eq!(handle_path("/demopass/", "localhost", "", &tconf), ("unauth".to_owned(), "redir".to_owned(), None));
-		assert_eq!(handle_path("/demopass/", "localhost", "aW5jb3JyZWN0OmxvZ2lu", &tconf), ("unauth".to_owned(), "redir".to_owned(), None));
-		assert_eq!(handle_path("/demopass/", "localhost", "YWRtaW46cGFzc3dk", &tconf), ("/demopass/index.html".to_owned(), "html".to_owned(), Some("html/demopass/index.html".to_owned())));
-	}
-	#[test]
-	fn test_handle_path_auth() {
-		let tconf = default_conf();
-		assert_eq!(handle_path("/demopass/", "localhost", "YWRtaW46cGFzc3dk", &tconf), ("/demopass/index.html".to_owned(), "html".to_owned(), Some("html/demopass/index.html".to_owned())));
-		assert_eq!(handle_path("/demopass/", "localhost", "YWRtaW46aW5jb3JyZWN0cGFzc3dk", &tconf), ("unauth".to_owned(), "redir".to_owned(), None));
-		assert_eq!(handle_path("/demopass/", "localhost", "", &tconf), ("unauth".to_owned(), "redir".to_owned(), None));
-	}
-}*/

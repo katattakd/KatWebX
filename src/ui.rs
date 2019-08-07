@@ -26,7 +26,7 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 	let html = [HEAD, "<title>Directory listing of ", &encode_minimal(&path[trim.len()..]), "</title><h1 class=ok>", FOLDERSVG, "Directory listing of ", &encode_minimal(&path[trim.len()..]), "</h1><table><tr><td><span>Name</span></td><td><span>Size</span></td></tr><tr><td><a href='..'>", BACKSVG, "Back</a></td></tr>"].concat();
 	let (mut html1, mut html2) = ("".to_owned(), "".to_owned());
 	for fpath in f {
-		let fstr = fpath.unwrap(); // TODO: Improve error handling
+		let fstr = fpath.unwrap();
 		let (name, size, icon);
 		match fstr.file_name() {
 			Some(fst) => {name = fst.to_string_lossy()},
