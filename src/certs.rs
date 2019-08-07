@@ -1,3 +1,4 @@
+// Certs.rs handles certificate parsing.
 extern crate rustls;
 extern crate webpki;
 use std::{collections, fs::File, io::{Read, BufReader}, sync::Arc};
@@ -29,8 +30,6 @@ impl ResolveCert {
 		} else {
 			return Err(["Unable to open ", pre, ".pem!"].concat())
 		}
-
-
 
 		if let Ok(c) = certs(&mut cert_file) {
 			cert_chain = c;

@@ -1,15 +1,13 @@
 #![deny(clippy::nursery)]
 #![deny(clippy::pedantic)]
-//#![deny(clippy::cargo)]
+#![allow(clippy::cargo)] // Clippy can't read our cargo.toml properly
 #![deny(clippy::all)]
-// This is out of our control, and can't be easily fixed.
-#![allow(clippy::multiple_crate_versions)]
-#![allow(clippy::cargo_common_metadata)]
 // This issue can't be fixed, due to a limitation of actix-web's API. Actix-web's API doesn't currently allow creating acceptors that use &HttpRequest instead of HttpRequest.
 #![allow(clippy::needless_pass_by_value)]
 
-// TODO: Seperate logging into a seperate file
-// TODO: Seperate more functions into various files, to reduce main file length
+// TODO: Seperate logging into a seperate file.
+// TODO: Seperate more functions into various files, to reduce main file length.
+// TODO: Add unit tests!
 
 #[macro_use]
 extern crate lazy_static;

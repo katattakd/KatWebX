@@ -24,7 +24,6 @@ struct ConfStructServer {
 	http_addr: Option<String>,
 	tls_addr: Option<String>,
 	stream_timeout: Option<usize>,
-	websocket_timeout: Option<u64>,
 	log_format: Option<String>,
 	cert_folder: Option<String>,
 	root_folder: Option<String>,
@@ -58,7 +57,6 @@ struct ConfStructAuth {
 pub struct Config {
 	pub caching_timeout: i64,
 	pub stream_timeout: usize,
-	pub websocket_timeout: u64,
 	pub hsts: bool,
 	hidden: Vec<String>,
 	lredir: Vec<String>,
@@ -107,7 +105,6 @@ impl Config {
 		Self {
 			caching_timeout: conft.content.caching_timeout.unwrap_or(12),
 			stream_timeout: conft.server.stream_timeout.unwrap_or(20),
-			websocket_timeout: conft.server.websocket_timeout.unwrap_or(20),
 			hsts: conft.content.hsts.unwrap_or(false),
 			hidden: {
 				let mut tmp = conft.content.hide.to_owned().unwrap_or_else(Vec::new);
@@ -339,11 +336,6 @@ pub const DEFAULT_CONFIG: &str = r##"# conf.toml - KatWebX's Default Configurati
 # The default value should be good enough for transfering small files. If you are serving large files, increasing this is recommended.
 #stream_timeout = 20
 
-# websocket_timeout controls the maximum amount of time a websocket connection can go without receving ping/pong frames before it is automatically closed.
-# Note that KatWebX's websocket proxy doesn't send ping/pong frames, it only proxies them.
-# The default value should be good enough for 90% of use cases, don't adjust this unless you need to.
-#websocket_timeout = 20
-
 # copy_chunk_size adjusts the maximum file size (in bytes) which can be directly copied into the response.
 # Files larger than this value are copied into the response in chunks of this size, which increases latency.
 # When the file is smaller than this value, it is copied directly into the response. This can heavily increase RAM usage on busy servers.
@@ -427,105 +419,3 @@ hide = ["src", "target"]
 # Note that brute forcing logins isn't very difficult to do, so make sure you use a complex username and password.
 #login = "admin:passwd"
 "##;
-
-// Unit tests
-// TODO: Fix these
-/*#[cfg(test)]
-mod tests {
-	use {config};
-	fn test_conf() -> config::Config {
-		config::Config::load_config(config::TEST_CONFIG.to_owned(), false)
-	}
-	#[test]
-	fn test_conf_parsing() {
-		let conf = test_conf();
-		assert_eq!(conf.caching_timeout, 4);
-		assert_eq!(conf.stream_timeout, 25);
-		assert_eq!(conf.websocket_timeout, 20);
-
-		assert_eq!(conf.hsts, false);
-
-		assert_eq!(conf.hidden, vec!["r#tar.*", "redir", "src", "ssl"]);
-		assert_eq!(conf.lredir, vec!["localhost/redir", "r#localhost/redir2.*"]);
-		assert_eq!(conf.lproxy, vec!["proxy.local", "r#localhost/proxy[0-9]"]);
-
-		assert_eq!(conf.hiddenx.patterns().to_owned(), vec![r"tar.*"]);
-		assert_eq!(conf.redirx.patterns().to_owned(), vec![r"localhost/redir2.*"]);
-		assert_eq!(conf.proxyx.patterns().to_owned(), vec![r"localhost/proxy[0-9]"]);
-		assert_eq!(conf.authx.patterns().to_owned(), vec![r"localhost/demopass.*"]);
-
-		assert_eq!(conf.redirmap.get("localhost/redir").map(|s| &**s), Some("https://kittyhacker101.tk"));
-		assert_eq!(conf.redirmap.get("r#localhost/redir2.*").map(|s| &**s), Some("https://google.com"));
-
-		assert_eq!(conf.proxymap.get("proxy.local").map(|s| &**s), Some("https://kittyhacker101.tk"));
-		assert_eq!(conf.proxymap.get("r#localhost/proxy[0-9]").map(|s| &**s), Some("http://localhost:8081"));
-
-		assert_eq!(conf.authmap.get("r#localhost/demopass.*").map(|s| &**s), Some("admin:passwd"));
-
-		assert_eq!(conf.protect, true);
-		assert_eq!(conf.compress_files, true);
-		assert_eq!(conf.log_format, "simple".to_owned());
-		assert_eq!(conf.http_addr, "[::]:80".to_owned());
-		assert_eq!(conf.tls_addr, "[::]:443".to_owned());
-		assert_eq!(conf.cert_folder, "ssl".to_owned());
-		assert_eq!(conf.root_folder, ".".to_owned());
-		assert_eq!(conf.max_streaming_len, 64000);
-		assert_eq!(conf.chacha, true);
-	}
-	fn default_conf() -> config::Config {
-		config::Config::load_config(config::DEFAULT_CONFIG.to_owned(), false)
-	}
-	#[test]
-	fn test_conf_defaults() {
-		let conf = default_conf();
-		assert_eq!(conf.caching_timeout, 12);
-		assert_eq!(conf.stream_timeout, 20);
-		assert_eq!(conf.websocket_timeout, 20);
-		assert_eq!(conf.hsts, false);
-		assert_eq!(conf.protect, true);
-		assert_eq!(conf.compress_files, true);
-		assert_eq!(conf.log_format, "simple".to_owned());
-		assert_eq!(conf.http_addr, "[::]:80".to_owned());
-		assert_eq!(conf.tls_addr, "[::]:443".to_owned());
-		assert_eq!(conf.cert_folder, "ssl".to_owned());
-		assert_eq!(conf.root_folder, ".".to_owned());
-		assert_eq!(conf.max_streaming_len, 65_536);
-		assert_eq!(conf.chacha, false);
-	}
-}*/
-
-// Configuration used for unit testing.
-/*#[allow(dead_code)]
-pub const TEST_CONFIG: &str = r##"# test.toml - KatWebX configuration used for internal unit testing.
-[server]
-http_addr = "[::]:80"
-tls_addr = "[::]:443"
-stream_timeout = 25
-websocket_timeout = 20
-copy_chunk_size = 64000
-prefer_chacha_poly = true
-log_format = "simple"
-cert_folder = "ssl"
-root_folder = "."
-[content]
-protect = true
-caching_timeout = 4
-compress_files = true
-hsts = false
-hide = ["src", "r#tar.*"]
-[[proxy]]
-location = "proxy.local"
-dest = "https://kittyhacker101.tk"
-[[proxy]]
-location = "r#localhost/proxy[0-9]"
-dest = "http://localhost:8081"
-[[redir]]
-location = "localhost/redir"
-dest = "https://kittyhacker101.tk"
-[[redir]]
-location = "r#localhost/redir2.*"
-dest = "https://google.com"
-[[auth]]
-location = "r#localhost/demopass.*"
-login = "admin:passwd"
-"##;*/

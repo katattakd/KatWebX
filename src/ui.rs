@@ -1,7 +1,8 @@
+// Ui.rs is responsible for creating all server-generated content (error pages, file listings, etc...)
+
 // This is currently a non-issue, and can be ignored.
 #![allow(clippy::cast_precision_loss)]
 
-// Ui.rs is responsible for creating all server-generated content (error pages, file listings, etc...)
 extern crate actix_web;
 extern crate htmlescape;
 extern crate number_prefix;
@@ -15,17 +16,16 @@ use self::number_prefix::{NumberPrefix, Standalone, Prefixed, PrefixNames};
 pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 	let f;
 
-	match glob::glob(&[path, "/*"].concat()) { // Get list of all files in directory
+	match glob::glob(&[path, "/*"].concat()) {
 		Ok(fi) => {f = fi},
 		Err(_) => {
 			return http_error(StatusCode::NOT_FOUND, "404 Not Found", &["The resource ", path, " could not be found."].concat(), false)
 		}
 	}
 
-	let html = [HEAD, "<title>Directory listing of ", &encode_minimal(&path[trim.len()..]), "</title><h1 class=ok>", FOLDERSVG, "Directory listing of ", &encode_minimal(&path[trim.len()..]), "</h1><table><tr><td><span>Name</span></td><td><span>Size</span></td></tr><tr><td><a href='..'>", BACKSVG, "Back</a></td></tr>"].concat(); // Generate title of directory listing
-
-	let (mut html1, mut html2) = ("".to_owned(), "".to_owned()); // Create two text buffers, one for folders, and one for files.
-	for fpath in f { // Iterate though file list, and generate listings for all files
+	let html = [HEAD, "<title>Directory listing of ", &encode_minimal(&path[trim.len()..]), "</title><h1 class=ok>", FOLDERSVG, "Directory listing of ", &encode_minimal(&path[trim.len()..]), "</h1><table><tr><td><span>Name</span></td><td><span>Size</span></td></tr><tr><td><a href='..'>", BACKSVG, "Back</a></td></tr>"].concat();
+	let (mut html1, mut html2) = ("".to_owned(), "".to_owned());
+	for fpath in f {
 		let fstr = fpath.unwrap(); // TODO: Improve error handling
 		let (name, size, icon);
 		match fstr.file_name() {
