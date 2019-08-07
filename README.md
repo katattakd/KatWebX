@@ -16,7 +16,6 @@ Approximate dates for the release of KatWebX are listed below.
 - Pre-release 1 and older will slowly leak memory, especially with large files. Restarting the server occasionally will fix this issue. This has been fixed in the current git version.
 - Pre-release 1 and older will show a server-generated file listing with a seemingly random order, on unix-based systems. This has been fixed in the current git version.
 - The current git version's reverse proxy misbehaves when dealing with servers that don't support keep-alive.
-- The current git version's websocket implementation is buggy at best, and nonfunctional at worst.
 - The current git version has some minor bugs that can cause clients to misbehave. This is an upstream issue, and will be fixed soon.
 
 ## Current Features
@@ -24,7 +23,6 @@ Approximate dates for the release of KatWebX are listed below.
 - Flexible configuration parsing
 - Regex-based redirects
 - Compressed regex-based reverse proxy
-- Websocket reverse proxying
 - HTTP basic authentication
 - Extremely fast file serving
 - Brotli file compression
@@ -40,6 +38,7 @@ Approximate dates for the release of KatWebX are listed below.
 - Let's Encrypt integration (Difficult but practical to implement, possible in the future)
 - Caching proxy (Currently very difficult to implement, unlikely to be implemented in the near future)
 - Advanced load balancer (May be implemented in the future)
+- Websocket reverse proxying (May be implemented in the future)
 - Support for more architectures (Likely to be implemented eventually, requires dependencies to be updated)
 
 ## Unlikely features (will not be implemented soon or at all)
