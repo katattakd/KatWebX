@@ -12,11 +12,6 @@
 # The default value should be good enough for transfering small files. If you are serving large files, increasing this is recommended.
 #stream_timeout = 20
 
-# websocket_timeout controls the maximum amount of time a websocket connection can go without receving ping/pong frames before it is automatically closed.
-# Note that KatWebX's websocket proxy doesn't send ping/pong frames, it only proxies them.
-# The default value should be good enough for 90% of use cases, don't adjust this unless you need to.
-#websocket_timeout = 20
-
 # copy_chunk_size adjusts the maximum file size (in bytes) which can be directly copied into the response.
 # Files larger than this value are copied into the response in chunks of this size, which increases latency.
 # When the file is smaller than this value, it is copied directly into the response. This can heavily increase RAM usage on busy servers.
@@ -24,7 +19,7 @@
 #copy_chunk_size = 65536
 
 # prefer_chacha_poly makes the server prefer using the CHACHA20_POLY1305_SHA256 ciphersuite, instead of using the ciphersuites that the client prefers (usually AES).
-# On CPUs which don't support AES-NI (some very old x86 and oldish ARM CPUs), this can give a ~7x speedup. This should be left disabled on CPUs supporting AES-NI, as it can cut peformance in half.
+# On CPUs which don't support AES-NI (some very old x86 and most non-x86 CPUs), this can give a ~7x speedup. This should be left disabled on CPUs supporting AES-NI, as it can cut peformance in half.
 #prefer_chacha_poly = false
 
 # log_format controls the format used for logging requests.
@@ -60,6 +55,10 @@ log_format = "simple"
 # hide specifies a list of folders which can't be used to serve content. This field supports regex.
 # Note that the certificate folder is automatically included in this, and folders starting with "." are always ignored.
 hide = ["src", "target"]
+
+# smaller_default tells the server to generate smaller error pages, and prevents the server from generating file listings of folders that do not contain an index file.
+# This can make your server slightly more secure, but it is not necessary for the vast majority of deployments.
+#smaller_default = false
 
 
 #[[proxy]] # HTTP reverse proxy

@@ -15,7 +15,6 @@ Approximate dates for the release of KatWebX are listed below.
 - Pre-release 1 and older will slowly leak memory, especially with large files. Restarting the server occasionally will fix this issue. This has been fixed in the current git version.
 - Pre-release 1 and older will show a server-generated file listing with a seemingly random order, on unix-based systems. This has been fixed in the current git version.
 - The current git version's reverse proxy misbehaves when dealing with servers that don't support keep-alive.
-- The current git version has some minor bugs that can cause clients to misbehave. This is an upstream issue, and will be fixed soon.
 
 ## Current Features
 - Easy to read TOML configuration

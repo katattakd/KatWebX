@@ -5,8 +5,6 @@
 // This issue can't be fixed, due to a limitation of actix-web's API. Actix-web's API doesn't currently allow creating acceptors that use &HttpRequest instead of HttpRequest.
 #![allow(clippy::needless_pass_by_value)]
 
-// TODO: Seperate logging into a seperate file.
-// TODO: Seperate more functions into various files, to reduce main file length.
 // TODO: Add unit tests!
 
 #[macro_use]
@@ -335,7 +333,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 
 // Load configuration, SSL certs, then attempt to start the program.
 fn main() {
-	println!("[Warn]: You are using an unstable Git version of KatWebX. You WILL experience bugs, documentation will likely not be 100% accurate, and some functionality may not work properly. Never use Git versions in production, unless you know the code well, and are prepared to deal with issues as they come up.");
+	//println!("[Warn]: You are using an unstable Git version of KatWebX. You WILL experience bugs, documentation will likely not be 100% accurate, and some functionality may not work properly. Never use Git versions in production, unless you know the code well, and are prepared to deal with issues as they come up.");
 	println!("[Info]: Starting KatWebX...");
 	let sys = System::new("katwebx");
 	lazy_static::initialize(&CONFM);
