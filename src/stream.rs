@@ -115,7 +115,7 @@ pub struct HttpRange {
     pub length: u64,
 }
 
-static PREFIX: &'static str = "bytes=";
+static PREFIX: &str = "bytes=";
 const PREFIX_LEN: usize = 6;
 
 impl HttpRange {
@@ -202,7 +202,7 @@ pub fn read_file(mut f: File) -> Result<Bytes, Error> {
 	Ok(Bytes::from(buffer))
 }
 
-type FileFut = Box<Future<Item = (File, Bytes), Error = BlockingError<io::Error>>>;
+type FileFut = Box<dyn Future<Item = (File, Bytes), Error = BlockingError<io::Error>>>;
 
 pub struct ChunkedReadFile {
     pub size: u64,

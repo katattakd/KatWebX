@@ -65,7 +65,7 @@ fn rc(lock: &CONFM) -> RwLockReadGuard<Config> {
 
 /* Reverse proxy a request, passing through any compression.
 Hop-by-hop headers are removed, to allow connection reuse. */
-fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload, client_ip: &str, c: &Config) -> Box<Future<Item=HttpResponse, Error=Error>> {
+fn proxy_request(path: &str, method: Method, headers: &HeaderMap, body: Payload, client_ip: &str, c: &Config) -> Box<dyn Future<Item=HttpResponse, Error=Error>> {
 	let mut req = ClientBuilder::new().timeout(Duration::from_secs(c.stream_timeout as u64))
 		.max_redirects(5).finish().request(method, path).no_decompress();
 
@@ -172,7 +172,7 @@ fn log_data(format_type: &str, status: u16, head: &str, req: &HttpRequest, conn:
 
 // Return a MIME type based on file extension. Assume that all text files are UTF-8, and don't try to guess the MIME type of unknown file extensions.
 fn get_mime(path: &str) -> String {
-    let guess = mime_guess::from_ext(path);
+	let guess = mime_guess::from_ext(path);
 	if let Some(mime) = guess.first() {
 		let mime = mime.to_string();
 
@@ -187,7 +187,7 @@ fn get_mime(path: &str) -> String {
 }
 
 // HTTP request handling
-fn hsts(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Item=HttpResponse, Error=Error>>> {
+fn hsts(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<dyn Future<Item=HttpResponse, Error=Error>>> {
 	let conf = rc(&CONFM);
 
 	// If HSTS is enabled, only clients that add the update-insecure-requests header will get redirected to HTTPS. All widely used modern browsers apply this header.
@@ -209,7 +209,7 @@ fn hsts(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Item
 }
 
 // HTTP(S) request handling.
-fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Item=HttpResponse, Error=Error>>> {
+fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<dyn Future<Item=HttpResponse, Error=Error>>> {
 	let conf = rc(&CONFM);
 
 	let rawpath = &percent_decode(req.path().as_bytes()).decode_utf8_lossy();
@@ -328,7 +328,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<Future<Ite
 				builder.header(header::X_XSS_PROTECTION, "1; mode=block");
 			})
 			.header(header::SERVER, "KatWebX")
-            .body(body))
+			.body(body))
 }
 
 // Load configuration, SSL certs, then attempt to start the program.
@@ -358,25 +358,20 @@ fn main() {
 		let f;
 		if let Ok(fi) = file {
 			f = fi;
-		} else {
-			continue
-		}
 
-		if f.path().extension() != Some(OsStr::new("crt")) {
-			continue
-		}
+			if f.path().extension() != Some(OsStr::new("crt")) {
+				continue
+			}
 
-		let path = f.path();
-		let pathnoext;
-		if let Some(p) = path.file_stem() {
-			pathnoext = p.to_string_lossy()
-		} else {
-			continue
+			let path = f.path();
+			let pathnoext;
+			if let Some(p) = path.file_stem() {
+				pathnoext = p.to_string_lossy();
+				cert_resolver.load(pathnoext.to_string()).unwrap_or_else(|err| {
+					println!("[Warn]: {}", err)
+				});
+			}
 		}
-
-		cert_resolver.load(pathnoext.to_string()).unwrap_or_else(|err| {
-			println!("[Warn]: {}", err)
-		});
 	}
 
 	tconfig.cert_resolver = Arc::new(cert_resolver);
@@ -424,7 +419,7 @@ fn main() {
 					println!("[Fatal]: Unable to initialize socket!");
 					process::exit(exitcode::DATAERR);
 				})
-		        .start();
+				.start();
 			}
 
 			println!("[Info]: Started KatWebX in socket mode.");
@@ -443,7 +438,7 @@ fn main() {
 			println!("{}", ["[Fatal]: Unable to bind to ", &conf.tls_addr, "!"].concat());
 			process::exit(exitcode::NOPERM);
 		})
-        .start();
+		.start();
 
 	HttpServer::new(
 		|| App::new().route("/*", web::to(hsts)))
@@ -453,7 +448,7 @@ fn main() {
 			println!("{}", ["[Fatal]: Unable to bind to ", &conf.http_addr, "!"].concat());
 			process::exit(exitcode::NOPERM);
 		})
-	    .start();
+		.start();
 
 	println!("[Info]: Started KatWebX.");
 	let _ = sys.run();

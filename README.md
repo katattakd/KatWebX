@@ -13,6 +13,7 @@ Approximate dates for the release of KatWebX are listed below.
 
 ## Known issues (as of this document's writing)
 - Evaluation release 1 does not send the content-type HTTP header correctly. This will be fixed in a future release.
+- Evaluation release 1 was compiled before an important change to the codebase, and it is not suitable for evaluating KatWebX's functionality. A new build will be made soon.
 
 ## Current Features
 - Easy to read TOML configuration
