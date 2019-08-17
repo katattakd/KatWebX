@@ -6,14 +6,14 @@ use rustls::{sign, ResolvesServerCert, SignatureScheme, sign::{any_supported_typ
 
 #[derive(Clone)]
 pub struct ResolveCert {
-    by_name: collections::HashMap<String, sign::CertifiedKey>,
+	by_name: collections::HashMap<String, sign::CertifiedKey>,
 	cert_folder: String,
 }
 
 impl ResolveCert {
-    pub fn new(folder: String) -> Self {
-        Self { cert_folder: folder, by_name: collections::HashMap::new() }
-    }
+	pub fn new(folder: String) -> Self {
+		Self { cert_folder: folder, by_name: collections::HashMap::new() }
+	}
 
 	pub fn load(&mut self, name: String) -> Result<(), String> {
 		let pre = &[self.to_owned().cert_folder, name.to_owned()].concat();
@@ -69,16 +69,16 @@ impl ResolveCert {
 }
 
 impl ResolvesServerCert for ResolveCert {
-    fn resolve(&self,
-            server_name: Option<webpki::DNSNameRef>,
-            _sigschemes: &[SignatureScheme])
-            -> Option<sign::CertifiedKey> {
-        if let Some(name) = server_name {
-            self.by_name.get(name.into()).or_else(|| {
+	fn resolve(&self,
+			server_name: Option<webpki::DNSNameRef>,
+			_sigschemes: &[SignatureScheme])
+			-> Option<sign::CertifiedKey> {
+		if let Some(name) = server_name {
+			self.by_name.get(name.into()).or_else(|| {
 				self.by_name.get("default")
 			}).cloned()
-        } else {
+		} else {
 			self.by_name.get("default").cloned()
-        }
-    }
+		}
+	}
 }

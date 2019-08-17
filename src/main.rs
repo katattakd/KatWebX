@@ -172,7 +172,7 @@ fn log_data(format_type: &str, status: u16, head: &str, req: &HttpRequest, conn:
 
 // Return a MIME type based on file extension. Assume that all text files are UTF-8, and don't try to guess the MIME type of unknown file extensions.
 fn get_mime(path: &str) -> String {
-	let guess = mime_guess::from_ext(path);
+	let guess = mime_guess::from_path(path);
 	if let Some(mime) = guess.first() {
 		let mime = mime.to_string();
 
