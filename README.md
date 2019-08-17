@@ -12,9 +12,7 @@ Approximate dates for the release of KatWebX are listed below.
 - September - A fully-functional, production-ready, 1.0 release will be finished and packaged. Additional updates will only add minor functionality changes, focusing mostly on performance improvments and bug fixes.
 
 ## Known issues (as of this document's writing)
-- Pre-release 1 and older will slowly leak memory, especially with large files. Restarting the server occasionally will fix this issue. This has been fixed in the current git version.
-- Pre-release 1 and older will show a server-generated file listing with a seemingly random order, on unix-based systems. This has been fixed in the current git version.
-- The current git version's reverse proxy misbehaves when dealing with servers that don't support keep-alive.
+- Evaluation release 1 does not send the content-type HTTP header correctly. This will be fixed in a future release.
 
 ## Current Features
 - Easy to read TOML configuration
