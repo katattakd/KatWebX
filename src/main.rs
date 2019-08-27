@@ -30,7 +30,7 @@ extern crate chrono;
 extern crate percent_encoding;
 extern crate exitcode;
 mod stream;
-use stream::{trim_prefix, trim_suffix, trim_host, trim_port, open_meta};
+use stream::{trim_prefix, trim_suffix, trim_host, trim_port, open_meta, ENCODE_SET};
 mod ui;
 mod config;
 use config::Config;
@@ -42,7 +42,7 @@ use actix_web::{web, web::Payload, Either, HttpServer, client::ClientBuilder, Ap
 use std::{env, process, fs, string::String, path::Path, time::Duration, sync::{Arc, RwLock, RwLockReadGuard}, ffi::OsStr, thread};
 use bytes::Bytes;
 use chrono::Local;
-use percent_encoding::{percent_decode};
+use percent_encoding::{percent_decode, utf8_percent_encode};
 use rustls::{NoClientAuth, ServerConfig};
 #[cfg(unix)]
 use listenfd::ListenFd;
@@ -227,10 +227,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<dyn Future
 	}
 
 	if host == "proxy" {
-		let mut path = path;
-		if !req.query_string().is_empty() {
-			path = path + "?" + req.query_string();
-		}
+		let path = utf8_percent_encode(&path, ENCODE_SET).collect::<String>();
 		return Either::B(proxy_request(&path, req.method().to_owned(), req.headers(), body, conn_info.remote().unwrap_or("127.0.0.1"), &conf))
 	}
 
@@ -333,7 +330,7 @@ fn index(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<dyn Future
 
 // Load configuration, SSL certs, then attempt to start the program.
 fn main() {
-	//println!("[Warn]: You are using an unstable Git version of KatWebX. You WILL experience bugs, documentation will likely not be 100% accurate, and some functionality may not work properly. Never use Git versions in production, unless you know the code well, and are prepared to deal with issues as they come up.");
+	println!("[Warn]: You are using an unstable Git version of KatWebX. You WILL experience bugs, documentation will likely not be 100% accurate, and some functionality may not work properly. Never use Git versions in production, unless you know the code well, and are prepared to deal with issues as they come up.");
 	println!("[Info]: Starting KatWebX...");
 	let sys = System::new("katwebx");
 	lazy_static::initialize(&CONFM);

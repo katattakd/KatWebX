@@ -11,6 +11,7 @@ extern crate futures;
 extern crate futures_cpupool;
 extern crate brotli;
 extern crate bytes;
+extern crate percent_encoding;
 
 use futures::{Async, Future, Poll, Stream};
 use bytes::Bytes;
@@ -18,6 +19,8 @@ use std::{io, io::{Error, Seek, Read}, fs::{File, Metadata}, cmp, path::Path};
 use actix_web::{web, HttpRequest, http::header};
 use actix_web::error::{BlockingError, ErrorInternalServerError};
 use self::brotli::{BrotliCompress, enc::encode::BrotliEncoderInitParams};
+use percent_encoding::{AsciiSet, CONTROLS};
+pub const ENCODE_SET: &AsciiSet = &CONTROLS.add(b' ').add(b'"').add(b'#').add(b'<').add(b'>').add(b'`').add(b'?').add(b'{').add(b'}');
 
 lazy_static! {
 	/* A non-exaustive list of MIME types that should compress well. Note that this list MUST be in alphabetical order, with no duplicate items.
