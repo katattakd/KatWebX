@@ -12,8 +12,7 @@ Approximate dates for the release of KatWebX are listed below.
 - September - A fully-functional, production-ready, 1.0 release will be finished and packaged. Additional updates will only add minor functionality changes, focusing mostly on performance improvments and bug fixes.
 
 ## Known issues (as of this document's writing)
-- Evaluation release 1 does not send the content-type HTTP header correctly. This will be fixed in a future release.
-- Evaluation release 1 was compiled before an important change to the codebase, and it is not suitable for evaluating KatWebX's functionality. A new build will be made soon.
+- Evaluation release 2 can't reverse proxy URLs with special characters in them. This has been fixed in the latest git version, and will be patched in the next release.
 
 ## Current Features
 - Easy to read TOML configuration
