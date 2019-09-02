@@ -45,9 +45,9 @@ serde_derive = "1.0.98"
 
 # The libraires below should always use the lastest version whenever possible.
 rustls = ">=0.15.2"
-openssl = { version = ">=0.10.24", features = ["vendored"] }
+#openssl = { version = ">=0.10.24", features = ["vendored"] }
 actix-web = { version = ">=1.0.5", default-features = false, features = ["client",  "flate2-rust", "rust-tls"] }
-actix-http = { version = ">=0.2.8", default-features = false, features = ["brotli", "flate2-rust", "ssl"] }
+actix-http = { version = ">=0.2.8", default-features = false, features = ["brotli", "flate2-rust", "rust-tls"] }
 actix-server = { version = ">=0.6.0", default-features = false, features = ["rust-tls"] }
 
 [target.'cfg(unix)'.dependencies]
