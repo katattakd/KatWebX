@@ -35,6 +35,9 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 			}
 		}
 		let mut namep = fstr.to_string_lossy()[trim.len()..].to_owned();
+		if namep.ends_with(".br") {
+			continue
+		}
 		if let Ok(fmeta) = fstr.metadata() {
 			size = fmeta.len();
 			if fmeta.is_dir() {
