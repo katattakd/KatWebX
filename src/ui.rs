@@ -7,10 +7,13 @@ extern crate actix_web;
 extern crate htmlescape;
 extern crate number_prefix;
 extern crate glob;
+extern crate percent_encoding;
 use actix_web::{HttpResponse, http::{header, ContentEncoding, StatusCode}, middleware::BodyEncoding};
 use std::borrow::Borrow;
 use self::htmlescape::{encode_minimal, encode_attribute};
+use self::percent_encoding::utf8_percent_encode;
 use self::number_prefix::{NumberPrefix, Standalone, Prefixed, PrefixNames};
+use stream::ENCODE_SET;
 
 // dir_listing generates a webpage that lists the contents of a directory.
 pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
@@ -51,17 +54,18 @@ pub fn dir_listing(path: &str, trim: &str) -> HttpResponse {
 			icon = FILESVG
 		}
 
+		let link = &encode_attribute(&utf8_percent_encode(&namep, ENCODE_SET).collect::<String>());
 		let mut sizestr = "".to_owned();
 		if icon != FOLDERSVG {
 			match NumberPrefix::decimal(size as f64) {
 				Standalone(bytes)   => {sizestr = [bytes.to_string(), "b".to_owned()].concat()}
 				Prefixed(prefix, n) => {sizestr = [&((n*10_f64).round()/10_f64).to_string(), prefix.symbol()].concat()}
 			}
-			html2 = [&html2, "<tr><td><a href='", &encode_attribute(&namep), "'>", icon, &encode_minimal(name.borrow()), "</td><td><span>", &sizestr, "</span></a></td></tr>"].concat();
+			html2 = [&html2, "<tr><td><a href='", link, "'>", icon, &encode_minimal(name.borrow()), "</td><td><span>", &sizestr, "</span></a></td></tr>"].concat();
 			continue
 		}
 
-		html1 = [&html1, "<tr><td><a href='", &encode_attribute(&namep), "'>", icon, &encode_minimal(name.borrow()), "</td><td><span>", &sizestr, "</span></a></td></tr>"].concat();
+		html1 = [&html1, "<tr><td><a href='", link, "'>", icon, &encode_minimal(name.borrow()), "</td><td><span>", &sizestr, "</span></a></td></tr>"].concat();
 	}
 
 	// Return file listing page
