@@ -23,15 +23,15 @@ name = "katwebx"
 base64 = "=0.10.1"
 brotli = "=3.3.0"
 bytes = "=0.4.12"
-chrono = "=0.4.7"
+chrono = "=0.4.9"
 exitcode = "=1.1.2"
-futures = "=0.1.28"
+futures = "=0.1.29"
 futures-cpupool = "=0.1.8"
 glob = "=0.3.0"
 htmlescape = "=0.3.1"
-toml = "=0.5.1"
-lazy_static = "=1.3.0"
-mime = "=0.3.13"
+toml = "=0.5.3"
+lazy_static = "=1.4.0"
+mime = "=0.3.14"
 mime_guess = "=2.0.1"
 number_prefix = "=0.3.0"
 percent-encoding = "=2.1.0"
@@ -39,16 +39,16 @@ webpki = "=0.19.1" #Can't be updated, latest version is 0.21.0
 
 # The libraires below should be updated often (at least once every 2 weeks, with new versions being tested before use.
 actix = "0.8.3"
-regex = "1.2.1"
-serde = "1.0.98"
-serde_derive = "1.0.98"
+regex = "1.3.1"
+serde = "1.0.101"
+serde_derive = "1.0.101"
 
 # The libraires below should always use the lastest version whenever possible.
-rustls = ">=0.15.2"
+rustls = ">=0.15.2"  #Can't be updated, latest version is 0.16.0
 #openssl = { version = ">=0.10.24", features = ["vendored"] }
-actix-web = { version = ">=1.0.5", default-features = false, features = ["client",  "flate2-rust", "rust-tls"] }
-actix-http = { version = ">=0.2.8", default-features = false, features = ["brotli", "flate2-rust", "rust-tls"] }
-actix-server = { version = ">=0.6.0", default-features = false, features = ["rust-tls"] }
+actix-web = { version = ">=1.0.8", default-features = false, features = ["client",  "flate2-rust", "rust-tls"] }
+actix-http = { version = ">=0.2.10", default-features = false, features = ["brotli", "flate2-rust", "rust-tls"] }
+actix-server = { version = ">=0.6.1", default-features = false, features = ["rust-tls"] }
 
 [target.'cfg(unix)'.dependencies]
 listenfd = "=0.3.3"

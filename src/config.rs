@@ -54,6 +54,7 @@ struct ConfStructAuth {
 }
 
 // The shared configuration object that KatWebX uses. Routing info shouldn't be accessed directly, it should be accessed through the handle_path function instead.
+#[derive(Debug)]
 pub struct Config {
 	pub caching_timeout: i64,
 	pub stream_timeout: usize,
@@ -236,51 +237,51 @@ impl Config {
 			}
 		}
 
-	// Check if a path has redirects set, and then return the redirects if they are present. If a regex redirect is set, trim matching content from the path, and then add the non-matching content to the redirect destination. 
-	if self.redirx.is_match(fp) {
-		if let Some(regx) = self.redirx.matches(fp).iter().next() {
-			if let Some(link) = self.redirmap.get(&["r#", &self.redirx.patterns()[regx]].concat()) {
-				return ([link.to_owned(), trim_regex(&self.redirx.patterns()[regx], fp)].concat(), "redir".to_owned(), None)
+		// Check if a path has redirects set, and then return the redirects if they are present. If a regex redirect is set, trim matching content from the path, and then add the non-matching content to the redirect destination. 
+		if self.redirx.is_match(fp) {
+			if let Some(regx) = self.redirx.matches(fp).iter().next() {
+				if let Some(link) = self.redirmap.get(&["r#", &self.redirx.patterns()[regx]].concat()) {
+					return ([link.to_owned(), trim_regex(&self.redirx.patterns()[regx], fp)].concat(), "redir".to_owned(), None)
+				}
 			}
 		}
-	}
-	if self.lredir.binary_search(fp).is_ok() {
-		if let Some(link) = self.redirmap.get(fp) {
-			return (link.to_owned(), "redir".to_owned(), None)
-		}
-	}
-
-	// Check if a reverse proxy is set, and return the proxy URL if it is present.
-	if self.proxyx.is_match(fp) {
-		if let Some(regx) = self.proxyx.matches(fp).iter().next() {
-			if let Some(link) = self.proxymap.get(&["r#", &self.proxyx.patterns()[regx]].concat()) {
-				return ([link.to_owned(), trim_regex(&self.proxyx.patterns()[regx], fp)].concat(), "proxy".to_owned(), None)
+		if self.lredir.binary_search(fp).is_ok() {
+			if let Some(link) = self.redirmap.get(fp) {
+				return (link.to_owned(), "redir".to_owned(), None)
 			}
 		}
-	}
-	if self.lproxy.binary_search(&hostn).is_ok() {
-		if let Some(link) = self.proxymap.get(host) {
-			return ([link, path].concat(), "proxy".to_owned(), None)
+
+		// Check if a reverse proxy is set, and return the proxy URL if it is present.
+		if self.proxyx.is_match(fp) {
+			if let Some(regx) = self.proxyx.matches(fp).iter().next() {
+				if let Some(link) = self.proxymap.get(&["r#", &self.proxyx.patterns()[regx]].concat()) {
+					return ([link.to_owned(), trim_regex(&self.proxyx.patterns()[regx], fp)].concat(), "proxy".to_owned(), None)
+				}
+			}
 		}
-	}
+		if self.lproxy.binary_search(&hostn).is_ok() {
+			if let Some(link) = self.proxymap.get(host) {
+				return ([link, path].concat(), "proxy".to_owned(), None)
+			}
+		}
 
-	// If the host doesn't exist or is a location the client isn't allowed to access, use the default host instead.
-	if self.hidden.binary_search(&hostn).is_ok() || self.hiddenx.is_match(&hostn) || host.is_empty() || &host[..1] == "." || host.contains('/') || host.contains('\\') || !Path::new(&hostn).exists() {
-		host = "html"
-	}
+		// If the host doesn't exist or is a location the client isn't allowed to access, use the default host instead.
+		if self.hidden.binary_search(&hostn).is_ok() || self.hiddenx.is_match(&hostn) || host.is_empty() || &host[..1] == "." || host.contains('/') || host.contains('\\') || !Path::new(&hostn).exists() {
+			host = "html"
+		}
 
-	// If we're serving a folder, return the index file from that folder.
-	let pathn;
-	if path.ends_with('/') {
-		pathn = [path, "index.html"].concat()
-	} else {
-		pathn = path.to_owned()
-	}
+		// If we're serving a folder, return the index file from that folder.
+		let pathn;
+		if path.ends_with('/') {
+			pathn = [path, "index.html"].concat()
+		} else {
+			pathn = path.to_owned()
+		}
 
-	// Return an optional "full path" variant of the path, for use with file requests.
-	let full_path = [host, &*pathn].concat();
-	(pathn, host.to_owned(), Some(full_path))
-}
+		// Return an optional "full path" variant of the path, for use with file requests.
+		let full_path = [host, &*pathn].concat();
+		(pathn, host.to_owned(), Some(full_path))
+	}
 }
 
 // Trim the port from an IPv4 address, IPv6 address, or domain:port.
@@ -419,3 +420,121 @@ hide = ["src", "target"]
 # Note that brute forcing logins isn't very difficult to do, so make sure you use a complex username and password.
 #login = "admin:passwd"
 "##;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+	use std::{fs, fs::File, io::Write};
+
+    #[test]
+	fn test_default_config() {
+		let conf = Config::load_config(DEFAULT_CONFIG.to_string(), false);
+		assert_eq!(conf.caching_timeout, 12);
+		assert_eq!(conf.stream_timeout, 20);
+		assert_eq!(conf.hsts, false);
+		assert_eq!(conf.protect, true);
+		assert_eq!(conf.compress_files, true);
+		assert_eq!(conf.chacha, false);
+		assert_eq!(conf.log_format, "simple".to_string());
+		assert_eq!(conf.http_addr, "[::]:80".to_string());
+		assert_eq!(conf.tls_addr, "[::]:443".to_string());
+		assert_eq!(conf.cert_folder, "ssl".to_string());
+		assert_eq!(conf.root_folder, ".".to_string());
+		assert_eq!(conf.max_streaming_len, 65536);
+		assert_eq!(conf.smaller_default, false);
+	}
+
+	#[test]
+	fn test_empty_config() {
+		let conf = Config::load_config("[server]\n[content]".to_string(), false);
+		assert_eq!(conf.caching_timeout, 12);
+		assert_eq!(conf.stream_timeout, 20);
+		assert_eq!(conf.hsts, false);
+		assert_eq!(conf.protect, true);
+		assert_eq!(conf.compress_files, true);
+		assert_eq!(conf.chacha, false);
+		assert_eq!(conf.log_format, "minimal".to_string());
+		assert_eq!(conf.http_addr, "[::]:80".to_string());
+		assert_eq!(conf.tls_addr, "[::]:443".to_string());
+		assert_eq!(conf.cert_folder, "ssl".to_string());
+		assert_eq!(conf.root_folder, ".".to_string());
+		assert_eq!(conf.max_streaming_len, 65536);
+		assert_eq!(conf.smaller_default, false);
+	}
+
+	#[test]
+	fn test_missing_config_file() {
+		let conf = Config::load_config("test.toml".to_string(), true);
+		assert_eq!(conf.caching_timeout, 12);
+		assert_eq!(conf.stream_timeout, 20);
+		assert_eq!(conf.hsts, false);
+		assert_eq!(conf.protect, true);
+		assert_eq!(conf.compress_files, true);
+		assert_eq!(conf.chacha, false);
+		assert_eq!(conf.log_format, "simple".to_string());
+		assert_eq!(conf.http_addr, "[::]:80".to_string());
+		assert_eq!(conf.tls_addr, "[::]:443".to_string());
+		assert_eq!(conf.cert_folder, "ssl".to_string());
+		assert_eq!(conf.root_folder, ".".to_string());
+		assert_eq!(conf.max_streaming_len, 65536);
+		assert_eq!(conf.smaller_default, false);
+		fs::remove_file("test.toml").unwrap();
+	}
+
+	#[test]
+	fn test_custom_config_file() {
+		let mut conff = File::create("testx.toml").unwrap();
+		conff.write_all(b"[server]\nhttp_addr = \"[::]:8080\"\ntls_addr = \"[::]:8181\"\nstream_timeout = 60\ncopy_chunk_size = 60000\nprefer_chacha_poly = true\nlog_format = \"none\"\ncert_folder = \"tls\"\nroot_folder = \"/myroot\"\n[content]\nprotect = false\ncaching_timeout = 72\ncompress_files = false\nhsts = true\nsmaller_default = true").unwrap();
+
+		let conf = Config::load_config("testx.toml".to_string(), true);
+		assert_eq!(conf.caching_timeout, 72);
+		assert_eq!(conf.stream_timeout, 60);
+		assert_eq!(conf.hsts, true);
+		assert_eq!(conf.protect, false);
+		assert_eq!(conf.compress_files, false);
+		assert_eq!(conf.chacha, true);
+		assert_eq!(conf.log_format, "none".to_string());
+		assert_eq!(conf.http_addr, "[::]:8080".to_string());
+		assert_eq!(conf.tls_addr, "[::]:8181".to_string());
+		assert_eq!(conf.cert_folder, "tls".to_string());
+		assert_eq!(conf.root_folder, "/myroot".to_string());
+		assert_eq!(conf.max_streaming_len, 60000);
+		assert_eq!(conf.smaller_default, true);
+
+		fs::remove_file("testx.toml").unwrap();
+	}
+
+	#[test]
+	fn test_path_handling() {
+		let conf = Config::load_config("[server]\n[content]\nhide = [\"ci\",\"r#tar.*\"]
+\n[[auth]]\nlocation = \"r#example.com/dapass.*\"\nlogin = \"admin:no\"\n[[redir]]\nlocation = \"localhost/redir\"\ndest = \"https://kittyhacker101.tk\"
+\n[[redir]]\nlocation = \"r#localhost/da_redir.*\"\ndest = \"https://example.com\"\n[[proxy]]\nlocation = \"example.co\"\ndest = \"https://kittyhacker101.tk\"\n[[proxy]]\nlocation = \"r#localhost/daproxy[0-9]\"\ndest = \"https://google.com\"".to_string(), false);
+		assert_eq!(conf.handle_path("/index.html", "localhost", ""), ("./".to_owned(), "redir".to_owned(), None));
+		assert_eq!(conf.handle_path("..", "localhost", ""), ("..".to_owned(), "redir".to_owned(), None));
+
+		assert_eq!(conf.handle_path("/", "localhost", ""), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
+		assert_eq!(conf.handle_path("/default.toml", "localhost", ""), ("/default.toml".to_owned(), "html".to_owned(), Some("html/default.toml".to_owned())));
+		assert_eq!(conf.handle_path("/demopass/", "localhost", ""), ("/demopass/index.html".to_owned(), "html".to_owned(), Some("html/demopass/index.html".to_owned())));
+		assert_eq!(conf.handle_path("/demopass/test.txt", "localhost", ""), ("/demopass/test.txt".to_owned(), "html".to_owned(), Some("html/demopass/test.txt".to_owned())));
+
+		assert_eq!(conf.handle_path("/", "src", ""), ("/index.html".to_owned(), "src".to_owned(), Some("src/index.html".to_owned())));
+		assert_eq!(conf.handle_path("/", "ssl", ""), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
+		assert_eq!(conf.handle_path("/", "ci", ""), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
+		assert_eq!(conf.handle_path("/", "target", ""), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
+		assert_eq!(conf.handle_path("/", ".", ""), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
+		assert_eq!(conf.handle_path("/", "..", ""), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
+		assert_eq!(conf.handle_path("/", "", ""), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
+		assert_eq!(conf.handle_path("/", "/home", ""), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
+		assert_eq!(conf.handle_path("/", "C:\\", ""), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
+		assert_eq!(conf.handle_path("/", "nonexistantdir", ""), ("/index.html".to_owned(), "html".to_owned(), Some("html/index.html".to_owned())));
+
+		assert_eq!(conf.handle_path("/dapass", "example.com", "YWRtaW46YWRtaW4="), ("unauth".to_owned(), "redir".to_owned(), None));
+		assert_eq!(conf.handle_path("/dapass", "example.com", "YWRtaW46bm8="), ("/dapass".to_owned(), "html".to_owned(), Some("html/dapass".to_owned())));
+
+		assert_eq!(conf.handle_path("/redir", "localhost", ""), ("https://kittyhacker101.tk".to_owned(), "redir".to_owned(), None));
+		assert_eq!(conf.handle_path("/da_redir1", "localhost", ""), ("https://example.com".to_owned(), "redir".to_owned(), None));
+
+		assert_eq!(conf.handle_path("/test.html", "example.co", ""), ("https://kittyhacker101.tk/test.html".to_owned(), "proxy".to_owned(), None));
+		assert_eq!(conf.handle_path("/daproxy4/yeet", "localhost", ""), ("https://google.com/yeet".to_owned(), "proxy".to_owned(), None));
+	}
+}

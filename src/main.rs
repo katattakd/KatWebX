@@ -1,3 +1,4 @@
+#![deny(warnings)]
 #![deny(clippy::nursery)]
 #![deny(clippy::pedantic)]
 #![allow(clippy::cargo)] // Clippy can't read our cargo.toml properly
