@@ -190,7 +190,7 @@ fn get_mime(path: &str) -> String {
 fn hsts(body: Payload, req: HttpRequest) -> Either<HttpResponse, Box<dyn Future<Item=HttpResponse, Error=Error>>> {
 	let conf = rc(&CONFM);
 
-	// If HSTS is enabled, only clients that add the update-insecure-requests header will get redirected to HTTPS. All widely used modern browsers apply this header.
+	// If HSTS is enabled, only clients that allow secure requests will get redirected to HTTPS.
 	if !conf.hsts || req.headers().get(header::UPGRADE_INSECURE_REQUESTS).unwrap_or(&BLANKHEAD).to_str().unwrap_or("1") == "0" {
 		return index(body, req);
 	}
