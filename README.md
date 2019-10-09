@@ -14,6 +14,7 @@ Approximate dates for the release of KatWebX are listed below.
 ## Known issues (as of this document's writing)
 - Evaluation release 2 can't reverse proxy URLs with special characters in them. This has been fixed in the latest git version, and will be patched in the next release.
 - Evaluation release 2's file listing doesn't properly escape URLs with special characters. This has been fixed in the latest git version, and will be patched in the next release.
+- Evaluation release 2 doesn't implement HTTP to HTTPS redirects properly for all clients. This has been fixed in the latest git version, and will be patched in the next release.
 
 ## Current Features
 - Easy to read TOML configuration
